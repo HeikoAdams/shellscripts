@@ -1,5 +1,11 @@
 #!/bin/bash
 
+if [ -n "$1" ]
+then
+	echo "Please provide the user- and groupname which permissions should be restored!";
+	exit -1;
+fi
+
 HOMEDIR="/home/$1"
 USER="$1"
 
