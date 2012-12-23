@@ -1,0 +1,19 @@
+/===================================================================\
+| changebackground.sh = a script for Xfce < 4.10 to periodicly 
+|                       change the background if an imagelist 
+|                       is set as wallpaper
+| compress.sh         = a script for compressing firefox's and 
+|                       thunderbird's sqlite databases
+| download.sh         = a simple curl wrapper script
+| genmon-yum.sh       = a script for using the Xfce genmon plugin 
+|                       for update notifications
+| listcreate.sh       = a script to easily create imagelists 
+|                       for usage as Xfce wallpaper source
+| mozbackup.sh        = a script for creating backups of firefox
+|                       and thunderbird profiles
+| pdf.sh              = a script for opening an pdf file inside
+|                       of a selinx sandbox
+| restore_perm.sh     = a script for restoring permissions and
+|                       of the users home dir and subdirs
+| youtubedl.sh        = a simple wrapper for youtubedl
+\===================================================================/
