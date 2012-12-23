@@ -1,8 +1,15 @@
 #!/bin/bash
 
-HOMEDIR="/home/heiko"
-USER="heiko"
-GROUP="heiko"
+HOMEDIR="/home/$1"
+USER="$1"
+
+if [ "$1" == "$2" ]
+then
+	GROUP=USER
+else
+	GROUP="$2"
+fi
+
 CURRENT_USER=$(whoami)
 
 if [ "$CURRENT_USER" != "root" ]
