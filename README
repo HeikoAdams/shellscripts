@@ -11,6 +11,8 @@
 |                       for usage as Xfce wallpaper source
 | mozbackup.sh        = a script for creating backups of firefox
 |                       and thunderbird profiles
+| mp3normalize.sh     = a script to normalize an mp3 collection using
+|                       mp3gain
 | pdf.sh              = a script for opening an pdf file inside
 |                       of a selinx sandbox
 | restore_perm.sh     = a script for restoring permissions and
