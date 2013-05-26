@@ -19,5 +19,7 @@
 |                       of a selinx sandbox
 | restore_perm.sh     = a script for restoring permissions and
 |                       ownership of the users home dir and subdirs
+| xfceaudio.sh	       = a small script to handle multimedia keys in
+|                       in pragha and parole
 | youtubedl.sh        = a simple wrapper for youtubedl
 \===================================================================/

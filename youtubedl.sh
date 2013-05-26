@@ -1,3 +1,3 @@
 #! /bin/bash
 
-youtube-dl -o "%(stitle)s.%(ext)s" "$1"
+youtube-dl --restrict-filenames -o "%(title)s.%(ext)s" "$1"
