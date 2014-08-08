@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if [ -n "$1" ]
+if [ -z "$1" ]
 then
 	echo "Please provide the user- and groupname which permissions should be restored!";
 	exit -1;
@@ -11,7 +11,7 @@ USER="$1"
 
 if [ "$1" == "$2" ]
 then
-	GROUP=USER
+	GROUP=$USER
 else
 	GROUP="$2"
 fi
@@ -24,11 +24,8 @@ then
   exit -1;
 fi
 
-echo "resetting user"
-chown -hR "$USER" "$HOMEDIR"
-
-echo "resetting group"
-chgrp -hR "$GROUP" "$HOMEDIR"
+echo "resetting user and group"
+chown -hR $USER:$GROUP "$HOMEDIR"
 
 echo "restoring SELinux contexts"
 restorecon -R "$HOMEDIR"
