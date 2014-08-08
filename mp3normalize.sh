@@ -2,7 +2,7 @@
 
 OLDIFS=$IFS;
 IFS=$'\n';
-MP3DIR=("/home/heiko/Musik/Charts" "/home/heiko/Musik/Weihnachten" "/home/heiko/Musik/Comedy" "/home/heiko/Downloads/MP3's");
+MP3DIR=("$HOME/Musik/Charts" "$HOME/Musik/Weihnachten" "$HOME/Musik/Comedy" "$HOME/Musik/Nena" "$HOME/Downloads/MP3's");
 GAIN=$(which mp3gain);
 LOGFILE="gain.log";
 
