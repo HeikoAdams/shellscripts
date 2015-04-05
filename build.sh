@@ -47,15 +47,19 @@ fi
 DEST=$(echo $SOURCE | awk -F\/ '{print $NF}')
 
 echo
-echo "Lade Sourcen runter"
-WGET=$(whereis wget | awk '{print $2}')
-rm -f SOURCES/$DEST
-$WGET -q $SOURCE -O SOURCES/$DEST
-
-if [ $? != 0 ]; then
+read -p "Sourcen herunterladen? (j/n) " download
+if [ "$download" == "j" ]; then
 	echo
-	echo "Download fehlgeschlagen!"
-	exit
+	echo "Lade Sourcen runter"
+	WGET=$(whereis wget | awk '{print $2}')
+	rm -f SOURCES/$DEST
+	$WGET -q $SOURCE -O SOURCES/$DEST
+
+	if [ $? != 0 ]; then
+		echo
+		echo "Download fehlgeschlagen!"
+		exit
+	fi
 fi
 
 # Wenn im SPEC keine BuildArch angegeben ist, für x86_64 bauen
@@ -143,6 +147,7 @@ if [ $? == 0 ]; then
 	if [ "$build" == "n" ]; then
 		exit
 	fi
+
 	for coprs in $(copr-cli list | grep Name | awk '{print $2}' | grep $1)
 	do
 		echo
