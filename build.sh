@@ -13,11 +13,11 @@ if [ "$WDIR" != "$HOME/rpmbuild" ]; then
 fi
 
 # benötigte Variable befüllen
-ARCH=$(cat SPECS/$1.spec | grep BuildArch | awk '{print $2}');
-SOURCE=$(cat SPECS/$1.spec | grep Source | awk '{print $2}');
-NAME=$(cat SPECS/$1.spec | grep Name | head -1 | awk '{print $2}');
+ARCH=$(cat SPECS/$1.spec | grep BuildArch: | awk '{print $2}');
+SOURCE=$(cat SPECS/$1.spec | grep Source: | awk '{print $2}');
+NAME=$(cat SPECS/$1.spec | grep Name: | head -1 | awk '{print $2}');
 PRJNAME=$(cat SPECS/$1.spec | grep prjname | head -1 | awk '{print $3}');
-VERSION=$(cat SPECS/$1.spec | grep Version | head -1 | awk '{print $2}');
+VERSION=$(cat SPECS/$1.spec | grep Version: | head -1 | awk '{print $2}');
 COMMIT=$(cat SPECS/$1.spec | grep commit | head -1 | awk '{print $3}');
 
 # Wenn die Quellen aus Git kommen, auch noch den Git-Hash berechnen
@@ -25,42 +25,46 @@ if [ -n "$COMMIT" ]; then
 	HASH=${COMMIT:0:7};
 fi
 
-# URL für den Download der Sourcen zusammenbauen
-MATCH="%{name}"
-SOURCE=${SOURCE//$MATCH/$NAME}
-MATCH="%{version}"
-SOURCE=${SOURCE//$MATCH/$VERSION}
-if [ -n "$PRJNAME" ]; then
-	MATCH="%{prjname}"
-	SOURCE=${SOURCE//$MATCH/$PRJNAME}
-fi
-if [ -n "$COMMIT" ]; then
-	MATCH="%{commit}"
-	SOURCE=${SOURCE//$MATCH/$COMMIT}
-fi
-if [ -n "$HASH" ]; then
-	MATCH="%{githash}"
-	SOURCE=${SOURCE//$MATCH/$HASH}
-fi
-
-# Dateinamen des lokalen Sourcen-Archivs generieren
-DEST=$(echo $SOURCE | awk -F\/ '{print $NF}')
-
-echo
-echo "Lade Sourcen runter"
-WGET=$(whereis wget | awk '{print $2}')
-rm -f SOURCES/$DEST
-$WGET -q $SOURCE -O SOURCES/$DEST
-
-if [ $? != 0 ]; then
-	echo
-	echo "Download fehlgeschlagen!"
-	exit
-fi
-
 # Wenn im SPEC keine BuildArch angegeben ist, für x86_64 bauen
 if [ -z "$ARCH" ]; then
 	BARCH="x86_64"
+fi
+
+echo
+read -p "Sourcen herunterladen? (j/n) " download
+if [ "$download" == "j" ]; then
+	# URL für den Download der Sourcen zusammenbauen
+	MATCH="%{name}"
+	SOURCE=${SOURCE//$MATCH/$NAME}
+	MATCH="%{version}"
+	SOURCE=${SOURCE//$MATCH/$VERSION}
+	if [ -n "$PRJNAME" ]; then
+		MATCH="%{prjname}"
+		SOURCE=${SOURCE//$MATCH/$PRJNAME}
+	fi
+	if [ -n "$COMMIT" ]; then
+		MATCH="%{commit}"
+		SOURCE=${SOURCE//$MATCH/$COMMIT}
+	fi
+	if [ -n "$HASH" ]; then
+		MATCH="%{githash}"
+		SOURCE=${SOURCE//$MATCH/$HASH}
+	fi
+
+	# Dateinamen des lokalen Sourcen-Archivs generieren
+	DEST=$(echo $SOURCE | awk -F\/ '{print $NF}')
+
+	echo
+	echo "Lade Sourcen runter"
+	rm -f SOURCES/$DEST
+	WGET=$(whereis wget | awk '{print $2}')
+	$WGET $SOURCE -q -O SOURCES/$DEST
+
+	if [ $? != 0 ]; then
+		echo
+		echo "Download fehlgeschlagen!"
+		exit
+	fi
 fi
 
 echo
@@ -136,60 +140,63 @@ elif [ "$upload" == "q" ]; then
 	exit
 fi
 
-# Binärpakete mit COPR bauen
-if [ $? == 0 ]; then
-	echo
-	read -p "Pakete im COPR bauen? (j/n/) " build
-	if [ "$build" == "n" ]; then
-		exit
-	fi
-	for coprs in $(copr-cli list | grep Name | awk '{print $2}' | grep $1)
-	do
-		echo
-		read -p "COPR $coprs verwenden? (j/n/q) " use
-		if [ "$use" == "j" ]; then
-			copr=$coprs
-			break
-		elif [ "$use" == "q" ]; then
-			exit
-		fi
-	done
-
-	if [ -z "$copr" ]; then
-		if [ -e "$HOME/rpmbuild/coprs.conf" ]; then
-			coprs=$(cat $HOME/rpmbuild/coprs.conf | grep $1)
-			if [ -n "$coprs" ]; then
-				echo
-				read -p "COPR $coprs verwenden? (j/n/q) " use
-				if [ "$use" == "j" ]; then
-					copr=$coprs
-				elif [ "$binary" == "q" ]; then
-					exit
-				fi
-			fi
-		fi
-
-		if [ -z "$copr" ]; then
-			echo
-			read -p "Name des zu verwendenden COPRs: " copr
-		fi
-	fi
-
-	if [ -n "$copr" ]; then
-		CLI=$(whereis copr-cli | awk '{print $2}')
-		if [ -n "$CLI" ]; then
-			# URL des SRPM auslesen und Variablen bestücken
-			HTTPHOST=$(cat $HOME/rpmbuild/ftp.conf | grep HTTPHOST)
-			HTTPPATH=$(cat $HOME/rpmbuild/ftp.conf | grep HTTPPATH)
-			HTTPHOST=${HTTPHOST#*=}
-			HTTPPATH=${HTTPPATH#*=}
-
-			$CLI build "$copr" http://$HTTPHOST/$HTTPPATH/$SRPM
-		fi
-	fi
-else
+if [ $? != 0 ]; then
 	echo
 	echo "Upload fehlgeschlagen!"
+fi
+
+# Binärpakete mit COPR bauen
+echo
+read -p "Pakete im COPR bauen? (j/n/) " build
+if [ "$build" == "n" ]; then
+	exit
+fi
+# Das zu verwendende COPR versuchen, zu ermitteln
+for coprs in $(copr-cli list | grep Name | awk '{print $2}' | grep $1)
+do
+	echo
+	read -p "COPR $coprs verwenden? (j/n/q) " use
+	if [ "$use" == "j" ]; then
+		copr=$coprs
+		break
+	elif [ "$use" == "q" ]; then
+		exit
+	fi
+done
+
+if [ -z "$copr" ]; then
+	if [ -e "$HOME/rpmbuild/coprs.conf" ]; then
+		coprs=$(cat $HOME/rpmbuild/coprs.conf | grep $1)
+		coprs=${coprs#*=}
+		if [ -n "$coprs" ]; then
+			echo
+			read -p "COPR $coprs verwenden? (j/n/q) " use
+			if [ "$use" == "j" ]; then
+				copr=$coprs
+			elif [ "$binary" == "q" ]; then
+				exit
+			fi
+		fi
+	fi
+
+	if [ -z "$copr" ]; then
+		echo
+		read -p "Name des zu verwendenden COPRs: " copr
+	fi
+fi
+
+# COPR-Build veranlassen
+if [ -n "$copr" ]; then
+	CLI=$(whereis copr-cli | awk '{print $2}')
+	if [ -n "$CLI" ]; then
+		# URL des SRPM auslesen und Variablen bestücken
+		HTTPHOST=$(cat $HOME/rpmbuild/ftp.conf | grep HTTPHOST)
+		HTTPPATH=$(cat $HOME/rpmbuild/ftp.conf | grep HTTPPATH)
+		HTTPHOST=${HTTPHOST#*=}
+		HTTPPATH=${HTTPPATH#*=}
+
+		$CLI build "$copr" http://$HTTPHOST/$HTTPPATH/$SRPM
+	fi
 fi
 
 cd ..
