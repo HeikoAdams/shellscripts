@@ -58,11 +58,17 @@ if [ "$download" == "j" ]; then
 	echo "Lade Sourcen runter"
 	rm -f SOURCES/$DEST
 	WGET=$(whereis wget | awk '{print $2}')
-	$WGET $SOURCE -q -O SOURCES/$DEST
+	if [ -n "$WGET" ]; then
+		$WGET $SOURCE -q -O SOURCES/$DEST
 
-	if [ $? != 0 ]; then
+		if [ $? != 0 ]; then
+			echo
+			echo "Download fehlgeschlagen!"
+			exit
+		fi
+	else
 		echo
-		echo "Download fehlgeschlagen!"
+		echo "wget ist nicht installiert!"
 		exit
 	fi
 fi
@@ -72,11 +78,6 @@ echo "Räume Build-Verzeichnisse auf"
 rm -rf BUILD/*
 rm -rf BUILDDIR/*
 rm -rf BUILDROOT/*
-for DIR in $(ls /var/lib/mock/)
-do
-	RESDIR="/var/lib/mock/$DIR/result"
-	rm -rf $RESDIR/*
-done
 
 echo
 echo "lösche vorhandene RPMs"
@@ -85,15 +86,27 @@ rm -rf RPMS/noarch/*$1*.rpm
 rm -rf RPMS/x86_64/*$1*.rpm
 rm -rf SRPMS/*$1*.rpm
 
+for DIR in $(ls /var/lib/mock/)
+do
+	RESDIR="/var/lib/mock/$DIR/result"
+	rm -rf $RESDIR/*$1*.rpm
+done
+
 echo
 echo -e "Erstelle ${1} Source-Paket"
 
 # SRPM erstellen
 RPMBUILD=$(whereis rpmbuild | awk '{print $2}')
-$RPMBUILD -bs SPECS/$1.spec
-if [ $? != 0 ]; then
+if [ -n "$RPMBUILD" ]; then
+	$RPMBUILD -bs SPECS/$1.spec
+	if [ $? != 0 ]; then
+		echo
+		echo "SRPM-Build fehlgeschlagen!"
+		exit
+	fi
+else
 	echo
-	echo "SRPM-Build fehlgeschlagen!"
+	echo "rpmbuild ist nicht installiert!"
 	exit
 fi
 
@@ -108,11 +121,17 @@ if [ "$binary" == "j" ]; then
 	echo
 	echo "Erstelle Binärpaket"
 	MOCK=$(whereis mock | awk '{print $2}')
-	$MOCK rebuild $SRPM --target=$BARCH --dnf
+	if [ -n "$MOCK" ]; then
+		$MOCK rebuild $SRPM --target=$BARCH --dnf
 
-	if [ $? != 0 ]; then
+		if [ $? != 0 ]; then
+			echo
+			echo "Build fehlgeschlagen!"
+			exit
+		fi
+	else
 		echo
-		echo "Build fehlgeschlagen!"
+		echo "mock ist nicht installiert"
 		exit
 	fi
 elif [ "$binary" == "q" ]; then
@@ -135,14 +154,20 @@ if [ "$upload" == "j" ]; then
 	echo
 	echo "lade $SRPM auf FTP-Server hoch"
 	CURL=$(whereis curl | awk '{print $2}')
-	$CURL -T $HOME/rpmbuild/SRPMS/$SRPM -u "$FTPUSER:$FTPPWD" ftp://$FTPHOST/$FTPPATH
+	if [ -n "$CURL" ]; then
+		$CURL -T $HOME/rpmbuild/SRPMS/$SRPM -u "$FTPUSER:$FTPPWD" ftp://$FTPHOST/$FTPPATH
+
+		if [ $? != 0 ]; then
+			echo
+			echo "Upload fehlgeschlagen!"
+		fi
+	else
+		echo
+		echo "curl ist nicht installiert!"
+		exit
+	fi
 elif [ "$upload" == "q" ]; then
 	exit
-fi
-
-if [ $? != 0 ]; then
-	echo
-	echo "Upload fehlgeschlagen!"
 fi
 
 # Binärpakete mit COPR bauen
@@ -164,6 +189,7 @@ do
 	fi
 done
 
+# Kein passendes COPR gefunden -> in coprs.conf nachschauen
 if [ -z "$copr" ]; then
 	if [ -e "$HOME/rpmbuild/coprs.conf" ]; then
 		coprs=$(cat $HOME/rpmbuild/coprs.conf | grep $1)
@@ -178,11 +204,12 @@ if [ -z "$copr" ]; then
 			fi
 		fi
 	fi
+fi
 
-	if [ -z "$copr" ]; then
-		echo
-		read -p "Name des zu verwendenden COPRs: " copr
-	fi
+# Noch immer kein passendes COPR gefunden -> User fragen
+if [ -z "$copr" ]; then
+	echo
+	read -p "Name des zu verwendenden COPRs: " copr
 fi
 
 # COPR-Build veranlassen
@@ -195,7 +222,13 @@ if [ -n "$copr" ]; then
 		HTTPHOST=${HTTPHOST#*=}
 		HTTPPATH=${HTTPPATH#*=}
 
-		$CLI build "$copr" http://$HTTPHOST/$HTTPPATH/$SRPM
+		if [ -n "$CURL" ]; then
+			$CLI build "$copr" http://$HTTPHOST/$HTTPPATH/$SRPM
+		else
+			echo
+			echo "copr-cli ist nicht installiert!"
+			exit
+		fi
 	fi
 fi
 
