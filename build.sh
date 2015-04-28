@@ -15,6 +15,9 @@ fi
 # benötigte Variable befüllen
 ARCH=$(cat SPECS/$1.spec | grep BuildArch: | awk '{print $2}');
 SOURCE=$(cat SPECS/$1.spec | grep Source: | awk '{print $2}');
+if [ -z "$SOURCE" ]; then
+	SOURCE=$(cat SPECS/$1.spec | grep Source0: | awk '{print $2}');
+fi
 NAME=$(cat SPECS/$1.spec | grep Name: | head -1 | awk '{print $2}');
 PRJNAME=$(cat SPECS/$1.spec | grep prjname | head -1 | awk '{print $3}');
 VERSION=$(cat SPECS/$1.spec | grep Version: | head -1 | awk '{print $2}');
@@ -54,9 +57,11 @@ if [ "$download" == "j" ]; then
 	# Dateinamen des lokalen Sourcen-Archivs generieren
 	DEST=$(echo $SOURCE | awk -F\/ '{print $NF}')
 
-	echo
-	echo "Lade Sourcen runter"
-	rm -f SOURCES/$DEST
+	echo "lösche alte Sourcen ..."
+	rm -f SOURCES/*$1*.gz
+	rm -f SOURCES/*$1*.xz
+	rm -f SOURCES/*$1*.bz2
+	echo "Lade aktuelle Sourcen runter ..."
 	WGET=$(whereis wget | awk '{print $2}')
 	if [ -n "$WGET" ]; then
 		$WGET $SOURCE -q -O SOURCES/$DEST
@@ -74,13 +79,12 @@ if [ "$download" == "j" ]; then
 fi
 
 echo
-echo "Räume Build-Verzeichnisse auf"
+echo "Räume Build-Verzeichnisse auf ..."
 rm -rf BUILD/*
 rm -rf BUILDDIR/*
 rm -rf BUILDROOT/*
 
-echo
-echo "lösche vorhandene RPMs"
+echo "lösche vorhandene RPMs ..."
 rm -rf RPMS/i686/*$1*.rpm
 rm -rf RPMS/noarch/*$1*.rpm
 rm -rf RPMS/x86_64/*$1*.rpm
@@ -118,8 +122,7 @@ SRPM=$(basename $SRPM)
 echo
 read -p "Binärpakete erstellen? (j/n/q) " binary
 if [ "$binary" == "j" ]; then
-	echo
-	echo "Erstelle Binärpaket"
+	echo "Erstelle Binärpaket ..."
 	MOCK=$(whereis mock | awk '{print $2}')
 	if [ -n "$MOCK" ]; then
 		$MOCK rebuild $SRPM --target=$BARCH --dnf
@@ -151,8 +154,7 @@ if [ "$upload" == "j" ]; then
 	FTPHOST=${FTPHOST#*=}
 	FTPPATH=${FTPPATH#*=}
 
-	echo
-	echo "lade $SRPM auf FTP-Server hoch"
+	echo "lade $SRPM auf FTP-Server hoch ..."
 	CURL=$(whereis curl | awk '{print $2}')
 	if [ -n "$CURL" ]; then
 		$CURL -T $HOME/rpmbuild/SRPMS/$SRPM -u "$FTPUSER:$FTPPWD" ftp://$FTPHOST/$FTPPATH
@@ -172,64 +174,69 @@ fi
 
 # Binärpakete mit COPR bauen
 echo
-read -p "Pakete im COPR bauen? (j/n/) " build
+read -p "Paket(e) im COPR bauen? (j/n/) " build
 if [ "$build" == "n" ]; then
 	exit
 fi
-# Das zu verwendende COPR versuchen, zu ermitteln
-for coprs in $(copr-cli list | grep Name | awk '{print $2}' | grep $1)
-do
-	echo
-	read -p "COPR $coprs verwenden? (j/n/q) " use
-	if [ "$use" == "j" ]; then
-		copr=$coprs
-		break
-	elif [ "$use" == "q" ]; then
-		exit
-	fi
-done
 
-# Kein passendes COPR gefunden -> in coprs.conf nachschauen
-if [ -z "$copr" ]; then
-	if [ -e "$HOME/rpmbuild/coprs.conf" ]; then
-		coprs=$(cat $HOME/rpmbuild/coprs.conf | grep $1)
-		coprs=${coprs#*=}
-		if [ -n "$coprs" ]; then
-			echo
-			read -p "COPR $coprs verwenden? (j/n/q) " use
-			if [ "$use" == "j" ]; then
-				copr=$coprs
-			elif [ "$binary" == "q" ]; then
-				exit
+CLI=$(whereis copr-cli | awk '{print $2}')
+if [ -n "$CLI" ]; then
+	# Das zu verwendende COPR versuchen, zu ermitteln
+	echo "Suche nach passendem COPR ..."
+	for coprs in $(copr-cli list | grep Name | awk '{print $2}' | grep $1)
+	do
+		read -p "COPR $coprs verwenden? (j/n/q) " use
+		if [ "$use" == "j" ]; then
+			copr=$coprs
+			break
+		elif [ "$use" == "q" ]; then
+			exit
+		fi
+	done
+
+	# Kein passendes COPR gefunden -> in coprs.conf nachschauen
+	if [ -z "$copr" ]; then
+		if [ -e "$HOME/rpmbuild/coprs.conf" ]; then
+			echo "Suche in coprs.conf nach passendem COPR ..."
+			coprs=$(cat $HOME/rpmbuild/coprs.conf | grep $1)
+			coprs=${coprs#*=}
+			if [ -n "$coprs" ]; then
+				read -p "COPR $coprs verwenden? (j/n/q) " use
+				if [ "$use" == "j" ]; then
+					copr=$coprs
+				elif [ "$binary" == "q" ]; then
+					exit
+				fi
 			fi
 		fi
 	fi
-fi
 
-# Noch immer kein passendes COPR gefunden -> User fragen
-if [ -z "$copr" ]; then
-	echo
-	read -p "Name des zu verwendenden COPRs: " copr
-fi
+	# Noch immer kein passendes COPR gefunden -> User fragen
+	if [ -z "$copr" ]; then
+		read -p "Name des zu verwendenden COPRs: " copr
+	fi
 
-# COPR-Build veranlassen
-if [ -n "$copr" ]; then
-	CLI=$(whereis copr-cli | awk '{print $2}')
-	if [ -n "$CLI" ]; then
+	# COPR-Build veranlassen
+	if [ -n "$copr" ]; then
 		# URL des SRPM auslesen und Variablen bestücken
 		HTTPHOST=$(cat $HOME/rpmbuild/ftp.conf | grep HTTPHOST)
 		HTTPPATH=$(cat $HOME/rpmbuild/ftp.conf | grep HTTPPATH)
 		HTTPHOST=${HTTPHOST#*=}
 		HTTPPATH=${HTTPPATH#*=}
 
-		if [ -n "$CURL" ]; then
+		if [ -n "$HTTPHOST" ]; then
+			echo
 			$CLI build "$copr" http://$HTTPHOST/$HTTPPATH/$SRPM
 		else
 			echo
-			echo "copr-cli ist nicht installiert!"
+			echo "$HOME/rpmbuild/ftp.conf ist fehlerhaft!"
 			exit
 		fi
 	fi
+else
+	echo
+	echo "copr-cli ist nicht installiert!"
+	exit
 fi
 
 cd ..
