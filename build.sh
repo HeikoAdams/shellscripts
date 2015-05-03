@@ -6,6 +6,14 @@ then
 	exit
 fi
 
+AUTO=true
+
+if [ -n "$2" ]; then
+	if [ "$2" == "noauto" ]; then
+		AUTO=false
+	fi
+fi
+
 WDIR=$(pwd)
 
 if [ "$WDIR" != "$HOME/rpmbuild" ]; then
@@ -33,8 +41,12 @@ if [ -z "$ARCH" ]; then
 	BARCH="x86_64"
 fi
 
-echo
-read -p "Sourcen herunterladen? (j/n) " download
+if [ $AUTO ]; then
+	download="j"
+else
+	echo
+	read -p "Sourcen herunterladen? (j/n) " download
+fi
 if [ "$download" == "j" ]; then
 	# URL für den Download der Sourcen zusammenbauen
 	MATCH="%{name}"
@@ -62,9 +74,9 @@ if [ "$download" == "j" ]; then
 	rm -f SOURCES/*$1*.xz
 	rm -f SOURCES/*$1*.bz2
 	echo "Lade aktuelle Sourcen runter ..."
-	WGET=$(whereis wget | awk '{print $2}')
+	WGET=$(whereis curl | awk '{print $2}')
 	if [ -n "$WGET" ]; then
-		$WGET $SOURCE -q -O SOURCES/$DEST
+		$WGET $SOURCE -q -o SOURCES/$DEST
 
 		if [ $? != 0 ]; then
 			echo
@@ -119,8 +131,12 @@ cd SRPMS
 SRPM=$(find -name $1* -type f)
 SRPM=$(basename $SRPM)
 
-echo
-read -p "Binärpakete erstellen? (j/n/q) " binary
+if [ $AUTO ]; then
+	binary="n"
+else
+	echo
+	read -p "Binärpakete erstellen? (j/n/q) " binary
+fi
 if [ "$binary" == "j" ]; then
 	echo "Erstelle Binärpaket ..."
 	MOCK=$(whereis mock | awk '{print $2}')
@@ -141,8 +157,13 @@ elif [ "$binary" == "q" ]; then
 	exit
 fi
 
-echo
-read -p "Upload des Source-Paketes? (j/n/q) " upload
+if [ $AUTO ]; then
+	upload="j"
+else
+	echo
+	read -p "Upload des Source-Paketes? (j/n/q) " upload
+fi
+
 if [ "$upload" == "j" ]; then
 	# FTP-Zugangsdaten auslesen und Variablen bestücken
 	FTPUSER=$(cat $HOME/rpmbuild/ftp.conf | grep FTPUSER)
@@ -173,8 +194,12 @@ elif [ "$upload" == "q" ]; then
 fi
 
 # Binärpakete mit COPR bauen
-echo
-read -p "Paket(e) im COPR bauen? (j/n/) " build
+if [ $AUTO ]; then
+	build="j"
+else
+	echo
+	read -p "Paket(e) im COPR bauen? (j/n/) " build
+fi
 if [ "$build" == "n" ]; then
 	exit
 fi
