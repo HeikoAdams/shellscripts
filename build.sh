@@ -76,7 +76,7 @@ if [ "$download" == "j" ]; then
 	echo "Lade aktuelle Sourcen runter ..."
 	WGET=$(whereis curl | awk '{print $2}')
 	if [ -n "$WGET" ]; then
-		$WGET $SOURCE -q -o SOURCES/$DEST
+		$WGET $SOURCE -o SOURCES/$DEST
 
 		if [ $? != 0 ]; then
 			echo
@@ -85,7 +85,7 @@ if [ "$download" == "j" ]; then
 		fi
 	else
 		echo
-		echo "wget ist nicht installiert!"
+		echo "curl ist nicht installiert!"
 		exit
 	fi
 fi
