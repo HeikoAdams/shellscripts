@@ -41,7 +41,7 @@ if [ -z "$ARCH" ]; then
 	BARCH="x86_64"
 fi
 
-if [ $AUTO ]; then
+if [ $AUTO == true ]; then
 	download="j"
 else
 	echo
@@ -73,10 +73,10 @@ if [ "$download" == "j" ]; then
 	rm -f SOURCES/*$1*.gz
 	rm -f SOURCES/*$1*.xz
 	rm -f SOURCES/*$1*.bz2
-	echo "Lade aktuelle Sourcen runter ..."
-	WGET=$(whereis curl | awk '{print $2}')
+	echo "Lade Source-Archiv $SOURCE herunter ..."
+	WGET=$(whereis wget | awk '{print $2}')
 	if [ -n "$WGET" ]; then
-		$WGET $SOURCE -o SOURCES/$DEST
+		$WGET $SOURCE -q -O SOURCES/$DEST
 
 		if [ $? != 0 ]; then
 			echo
@@ -85,7 +85,7 @@ if [ "$download" == "j" ]; then
 		fi
 	else
 		echo
-		echo "curl ist nicht installiert!"
+		echo "wget ist nicht installiert!"
 		exit
 	fi
 fi
@@ -131,7 +131,7 @@ cd SRPMS
 SRPM=$(find -name $1* -type f)
 SRPM=$(basename $SRPM)
 
-if [ $AUTO ]; then
+if [ $AUTO == true ]; then
 	binary="n"
 else
 	echo
@@ -153,11 +153,12 @@ if [ "$binary" == "j" ]; then
 		echo "mock ist nicht installiert"
 		exit
 	fi
-elif [ "$binary" == "q" ]; then
+fi
+if [ "$binary" == "q" ]; then
 	exit
 fi
 
-if [ $AUTO ]; then
+if [ $AUTO == true ]; then
 	upload="j"
 else
 	echo
@@ -165,36 +166,43 @@ else
 fi
 
 if [ "$upload" == "j" ]; then
-	# FTP-Zugangsdaten auslesen und Variablen bestücken
-	FTPUSER=$(cat $HOME/rpmbuild/ftp.conf | grep FTPUSER)
-	FTPPWD=$(cat $HOME/rpmbuild/ftp.conf | grep FTPPWD)
-	FTPHOST=$(cat $HOME/rpmbuild/ftp.conf | grep FTPHOST)
-	FTPPATH=$(cat $HOME/rpmbuild/ftp.conf | grep FTPPATH)
-	FTPUSER=${FTPUSER#*=}
-	FTPPWD=${FTPPWD#*=}
-	FTPHOST=${FTPHOST#*=}
-	FTPPATH=${FTPPATH#*=}
+	if [ -e "$HOME/rpmbuild/ftp.conf" ]; then
+		# FTP-Zugangsdaten auslesen und Variablen bestücken
+		FTPUSER=$(cat $HOME/rpmbuild/ftp.conf | grep FTPUSER)
+		FTPPWD=$(cat $HOME/rpmbuild/ftp.conf | grep FTPPWD)
+		FTPHOST=$(cat $HOME/rpmbuild/ftp.conf | grep FTPHOST)
+		FTPPATH=$(cat $HOME/rpmbuild/ftp.conf | grep FTPPATH)
+		FTPUSER=${FTPUSER#*=}
+		FTPPWD=${FTPPWD#*=}
+		FTPHOST=${FTPHOST#*=}
+		FTPPATH=${FTPPATH#*=}
 
-	echo "lade $SRPM auf FTP-Server hoch ..."
-	CURL=$(whereis curl | awk '{print $2}')
-	if [ -n "$CURL" ]; then
-		$CURL -T $HOME/rpmbuild/SRPMS/$SRPM -u "$FTPUSER:$FTPPWD" ftp://$FTPHOST/$FTPPATH
+		echo "lade $SRPM auf FTP-Server hoch ..."
+		CURL=$(whereis curl | awk '{print $2}')
+		if [ -n "$CURL" ]; then
+			$CURL -T $HOME/rpmbuild/SRPMS/$SRPM -u "$FTPUSER:$FTPPWD" ftp://$FTPHOST/$FTPPATH
 
-		if [ $? != 0 ]; then
+			if [ $? != 0 ]; then
+				echo
+				echo "Upload fehlgeschlagen!"
+			fi
+		else
 			echo
-			echo "Upload fehlgeschlagen!"
+			echo "curl ist nicht installiert!"
+			exit
 		fi
 	else
 		echo
-		echo "curl ist nicht installiert!"
+		echo "$HOME/rpmbuild/ftp.conf existiert nicht!"
 		exit
 	fi
-elif [ "$upload" == "q" ]; then
+fi
+if [ "$upload" == "q" ]; then
 	exit
 fi
 
 # Binärpakete mit COPR bauen
-if [ $AUTO ]; then
+if [ $AUTO == true ]; then
 	build="j"
 else
 	echo
@@ -243,18 +251,39 @@ if [ -n "$CLI" ]; then
 
 	# COPR-Build veranlassen
 	if [ -n "$copr" ]; then
-		# URL des SRPM auslesen und Variablen bestücken
-		HTTPHOST=$(cat $HOME/rpmbuild/ftp.conf | grep HTTPHOST)
-		HTTPPATH=$(cat $HOME/rpmbuild/ftp.conf | grep HTTPPATH)
-		HTTPHOST=${HTTPHOST#*=}
-		HTTPPATH=${HTTPPATH#*=}
+		if [ -e "$HOME/rpmbuild/ftp.conf" ]; then
+			# URL des SRPM auslesen und Variablen bestücken
+			HTTPHOST=$(cat $HOME/rpmbuild/ftp.conf | grep HTTPHOST)
+			HTTPPATH=$(cat $HOME/rpmbuild/ftp.conf | grep HTTPPATH)
+			CHROOTS=$(cat $HOME/rpmbuild/coprs.conf | grep $copr)
 
-		if [ -n "$HTTPHOST" ]; then
-			echo
-			$CLI build "$copr" http://$HTTPHOST/$HTTPPATH/$SRPM
+			HTTPHOST=${HTTPHOST#*=}
+			HTTPPATH=${HTTPPATH#*=}
+			CHROOTS=${CHROOTS#*=}
+
+			if [ -n "$HTTPHOST" ]; then
+				if [ -z "$CHROOTS" ]; then
+					echo
+					$CLI build "$copr" http://$HTTPHOST/$HTTPPATH/$SRPM
+				else
+					echo
+					OLDIFS=$IFS
+					IFS=","
+					for CHROOT in $CHROOTS;	do
+						CMDLINE="$CMDLINE -r $CHROOT"
+					done
+					IFS=$OLDIFS
+					$CLI build "$copr" $CMDLINE http://$HTTPHOST/$HTTPPATH/$SRPM
+					exit
+				fi
+			else
+				echo
+				echo "$HOME/rpmbuild/ftp.conf ist fehlerhaft!"
+				exit
+			fi
 		else
 			echo
-			echo "$HOME/rpmbuild/ftp.conf ist fehlerhaft!"
+			echo "$HOME/rpmbuild/ftp.conf existiert nicht!"
 			exit
 		fi
 	fi
