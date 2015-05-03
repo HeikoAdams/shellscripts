@@ -31,6 +31,15 @@ PRJNAME=$(cat SPECS/$1.spec | grep prjname | head -1 | awk '{print $3}');
 VERSION=$(cat SPECS/$1.spec | grep Version: | head -1 | awk '{print $2}');
 COMMIT=$(cat SPECS/$1.spec | grep commit | head -1 | awk '{print $3}');
 
+# FTP-Zugangsdaten auslesen sowie URL des SRPM auslesen
+if [ -e "$HOME/rpmbuild/ftp.conf" ]; then
+	source $HOME/rpmbuild/ftp.conf
+else
+	echo
+	echo "$HOME/rpmbuild/ftp.conf existiert nicht!"
+	exit
+fi
+
 # Wenn die Quellen aus Git kommen, auch noch den Git-Hash berechnen
 if [ -n "$COMMIT" ]; then
 	HASH=${COMMIT:0:7};
@@ -166,17 +175,7 @@ else
 fi
 
 if [ "$upload" == "j" ]; then
-	if [ -e "$HOME/rpmbuild/ftp.conf" ]; then
-		# FTP-Zugangsdaten auslesen und Variablen bestücken
-		FTPUSER=$(cat $HOME/rpmbuild/ftp.conf | grep FTPUSER)
-		FTPPWD=$(cat $HOME/rpmbuild/ftp.conf | grep FTPPWD)
-		FTPHOST=$(cat $HOME/rpmbuild/ftp.conf | grep FTPHOST)
-		FTPPATH=$(cat $HOME/rpmbuild/ftp.conf | grep FTPPATH)
-		FTPUSER=${FTPUSER#*=}
-		FTPPWD=${FTPPWD#*=}
-		FTPHOST=${FTPHOST#*=}
-		FTPPATH=${FTPPATH#*=}
-
+	if [ -n "$FTPHOST" ]; then
 		echo "lade $SRPM auf FTP-Server hoch ..."
 		CURL=$(whereis curl | awk '{print $2}')
 		if [ -n "$CURL" ]; then
@@ -193,7 +192,7 @@ if [ "$upload" == "j" ]; then
 		fi
 	else
 		echo
-		echo "$HOME/rpmbuild/ftp.conf existiert nicht!"
+		echo "FTP-Zugangsdaten sind nicht konfiguriert"
 		exit
 	fi
 fi
@@ -251,39 +250,31 @@ if [ -n "$CLI" ]; then
 
 	# COPR-Build veranlassen
 	if [ -n "$copr" ]; then
-		if [ -e "$HOME/rpmbuild/ftp.conf" ]; then
-			# URL des SRPM auslesen und Variablen bestücken
-			HTTPHOST=$(cat $HOME/rpmbuild/ftp.conf | grep HTTPHOST)
-			HTTPPATH=$(cat $HOME/rpmbuild/ftp.conf | grep HTTPPATH)
-			CHROOTS=$(cat $HOME/rpmbuild/coprs.conf | grep $copr)
+		if [ -n "$HTTPHOST" ]; then
+			# Nachschauen, ob ein Projekt nur für bestimmte
+			# chroots gebaut werden soll
+			if [ -e "$HOME/rpmbuild/chroots.conf" ]; then
+				CHROOTS=$(cat $HOME/rpmbuild/chroots.conf | grep $copr)
+				CHROOTS=${CHROOTS#*=}
+			fi
 
-			HTTPHOST=${HTTPHOST#*=}
-			HTTPPATH=${HTTPPATH#*=}
-			CHROOTS=${CHROOTS#*=}
-
-			if [ -n "$HTTPHOST" ]; then
-				if [ -z "$CHROOTS" ]; then
-					echo
-					$CLI build "$copr" http://$HTTPHOST/$HTTPPATH/$SRPM
-				else
-					echo
-					OLDIFS=$IFS
-					IFS=","
-					for CHROOT in $CHROOTS;	do
-						CMDLINE="$CMDLINE -r $CHROOT"
-					done
-					IFS=$OLDIFS
-					$CLI build "$copr" $CMDLINE http://$HTTPHOST/$HTTPPATH/$SRPM
-					exit
-				fi
+			if [ -z "$CHROOTS" ]; then
+				echo
+				$CLI build "$copr" http://$HTTPHOST/$HTTPPATH/$SRPM
 			else
 				echo
-				echo "$HOME/rpmbuild/ftp.conf ist fehlerhaft!"
+				OLDIFS=$IFS
+				IFS=","
+				for CHROOT in $CHROOTS;	do
+					CMDLINE="$CMDLINE -r $CHROOT"
+				done
+				IFS=$OLDIFS
+				$CLI build "$copr" $CMDLINE http://$HTTPHOST/$HTTPPATH/$SRPM
 				exit
 			fi
 		else
 			echo
-			echo "$HOME/rpmbuild/ftp.conf existiert nicht!"
+			echo "$HOME/rpmbuild/ftp.conf ist fehlerhaft!"
 			exit
 		fi
 	fi
