@@ -23,7 +23,7 @@ if [ -n "$1" ]; then
     fi
 fi
 
-textstring=$(wget $warning_url -O -  | grep -i -e "warnung vor" -e "vorabinformation" | sed s/\<\\/p\>//g ) 
+textstring=$(wget $warning_url -q -O -  | grep -i -e "warnung vor" -e "vorabinformation" | sed s/\<\\/p\>//g ) 
 
 if [ "$textstring" = ""  ]; then 
     notify-send --icon=$popup_icon """$notify_header""" "keine Warnungen vorhanden"
