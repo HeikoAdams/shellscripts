@@ -217,7 +217,11 @@ if [ -n "$CLI" ]; then
 	echo "Suche nach passendem COPR ..."
 	for coprs in $(copr-cli list | grep Name | awk '{print $2}' | grep $1)
 	do
-		read -p "COPR $coprs verwenden? (j/n/q) " use
+		if [ $AUTO == true ]; then
+			use="j"
+		else
+			read -p "COPR $coprs verwenden? (j/n/q) " use
+		fi
 		if [ "$use" == "j" ]; then
 			copr=$coprs
 			break
@@ -233,10 +237,14 @@ if [ -n "$CLI" ]; then
 			coprs=$(cat $HOME/rpmbuild/coprs.conf | grep $1)
 			coprs=${coprs#*=}
 			if [ -n "$coprs" ]; then
-				read -p "COPR $coprs verwenden? (j/n/q) " use
+				if [ $AUTO == true ]; then
+					use="j"
+				else
+					read -p "COPR $coprs verwenden? (j/n/q) " use
+				fi
 				if [ "$use" == "j" ]; then
 					copr=$coprs
-				elif [ "$binary" == "q" ]; then
+				elif [ "$use" == "q" ]; then
 					exit
 				fi
 			fi
