@@ -21,6 +21,12 @@ if [ "$WDIR" != "$HOME/rpmbuild" ]; then
 fi
 
 # benötigte Variable befüllen
+RPMBUILD=$(whereis rpmbuild | awk '{print $2}')
+WGET=$(whereis wget | awk '{print $2}')
+MOCK=$(whereis mock | awk '{print $2}')
+CURL=$(whereis curl | awk '{print $2}')
+CLI=$(whereis copr-cli | awk '{print $2}')
+
 ARCH=$(cat SPECS/$1.spec | grep BuildArch: | awk '{print $2}');
 SOURCE=$(cat SPECS/$1.spec | grep Source: | awk '{print $2}');
 if [ -z "$SOURCE" ]; then
@@ -45,9 +51,10 @@ if [ -n "$COMMIT" ]; then
 	HASH=${COMMIT:0:7};
 fi
 
-# Wenn im SPEC keine BuildArch angegeben ist, für x86_64 bauen
+# Wenn im SPEC keine BuildArch angegeben ist, für die eigene Prozessor-
+# Architektur bauen
 if [ -z "$ARCH" ]; then
-	BARCH="x86_64"
+	BARCH=$(uname -m)
 fi
 
 if [ $AUTO == true ]; then
@@ -83,7 +90,6 @@ if [ "$download" == "j" ]; then
 	rm -f SOURCES/*$1*.xz
 	rm -f SOURCES/*$1*.bz2
 	echo "Lade Source-Archiv $SOURCE herunter ..."
-	WGET=$(whereis wget | awk '{print $2}')
 	if [ -n "$WGET" ]; then
 		$WGET $SOURCE -q -O SOURCES/$DEST
 
@@ -121,7 +127,6 @@ echo
 echo -e "Erstelle ${1} Source-Paket"
 
 # SRPM erstellen
-RPMBUILD=$(whereis rpmbuild | awk '{print $2}')
 if [ -n "$RPMBUILD" ]; then
 	$RPMBUILD -bs SPECS/$1.spec
 	if [ $? != 0 ]; then
@@ -135,10 +140,15 @@ else
 	exit
 fi
 
-# Dateinamen des SRPM extrahieren
-cd SRPMS
-SRPM=$(find -name $1* -type f)
-SRPM=$(basename $SRPM)
+# Pfad zum SRPM generieren
+SRPM=$(find -samefile SRPMS/$1* -type f)
+SRPM=$(readlink -f $SRPM)
+
+if [ -z "$SRPM" ]; then
+	echo
+	echo "konnte kein SRPM finden!"
+	exit
+fi
 
 if [ $AUTO == true ]; then
 	binary="n"
@@ -148,7 +158,6 @@ else
 fi
 if [ "$binary" == "j" ]; then
 	echo "Erstelle Binärpaket ..."
-	MOCK=$(whereis mock | awk '{print $2}')
 	if [ -n "$MOCK" ]; then
 		$MOCK rebuild $SRPM --target=$BARCH --dnf
 
@@ -177,7 +186,6 @@ fi
 if [ "$upload" == "j" ]; then
 	if [ -n "$FTPHOST" ]; then
 		echo "lade $SRPM auf FTP-Server hoch ..."
-		CURL=$(whereis curl | awk '{print $2}')
 		if [ -n "$CURL" ]; then
 			$CURL -T $HOME/rpmbuild/SRPMS/$SRPM -u "$FTPUSER:$FTPPWD" ftp://$FTPHOST/$FTPPATH
 
@@ -211,11 +219,10 @@ if [ "$build" == "n" ]; then
 	exit
 fi
 
-CLI=$(whereis copr-cli | awk '{print $2}')
 if [ -n "$CLI" ]; then
 	# Das zu verwendende COPR versuchen, zu ermitteln
 	echo "Suche nach passendem COPR ..."
-	for coprs in $(copr-cli list | grep Name | awk '{print $2}' | grep $1)
+	for coprs in $($CLI list | grep Name | awk '{print $2}' | grep $1)
 	do
 		if [ $AUTO == true ]; then
 			use="j"
