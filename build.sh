@@ -146,7 +146,7 @@ SRPM=$(readlink -f $SRPM)
 
 if [ -z "$SRPM" ]; then
 	echo
-	echo "konnte kein SRPM finden!"
+	echo "konnte das SRPM nicht finden!"
 	exit
 fi
 
