@@ -187,7 +187,7 @@ if [ "$upload" == "j" ]; then
 	if [ -n "$FTPHOST" ]; then
 		echo "lade $SRPM auf FTP-Server hoch ..."
 		if [ -n "$CURL" ]; then
-			$CURL -T $HOME/rpmbuild/SRPMS/$SRPM -u "$FTPUSER:$FTPPWD" ftp://$FTPHOST/$FTPPATH
+			$CURL -T $SRPM -u "$FTPUSER:$FTPPWD" ftp://$FTPHOST/$FTPPATH
 
 			if [ $? != 0 ]; then
 				echo
