@@ -3,8 +3,8 @@ notify_header="Wetterwarnungen für Coburg"
 popup_icon=~/Bilder/Wetterwarnung.png
 landkreis=COX
 image_viewer=display # must be able to handle URLs
-warning_url='http://www.dwd.de/dyn/app/ws/html/reports/'${landkreis}'_warning_de.html'
-timeline_url="http://www.dwd.de/dyn/app/ws/maps/${landkreis}_timeline.png"
+warning_url='http://www.wettergefahren.de/dyn/app/ws/html/reports/'${landkreis}'_warning_de.html'
+timeline_url="http://www.wettergefahren.de/dyn/app/ws/maps/${landkreis}_timeline.png"
 automode=false
 
 img_viewer=$(whereis $image_viewer | awk '{print $2}')
