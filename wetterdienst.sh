@@ -1,12 +1,29 @@
 #!/bin/bash
 function initURLS {
     warning_url="http://www.wettergefahren.de/dyn/app/ws/html/reports/${landkreis}_warning_de.html"
-    timeline_url="http://www.wettergefahren.de/dyn/app/ws/maps/${landkreis}_timeline.png"	
+    timeline_url="http://www.wettergefahren.de/dyn/app/ws/maps/${landkreis}_timeline.png"
 }
 
 function invalidLK {
-    $notify --icon=$popup_icon """ungültiger Landkreis""" "ungültiger Landkreis: $1"
+    $notify --icon=$popup_icon """ungültiger Landkreis""" "ungültiger Landkreis: ${landkreis}"
     exit
+}
+
+function checkDependencies {
+    img_viewer=$(whereis $image_viewer | awk '{print $2}')
+    notify=$(whereis notify-send | awk '{print $2}')
+    wget=$(whereis wget | awk '{print $2}')
+
+    if [ -z "$img_viewer" ]; then
+        echo "$image_viewer konnte nicht gefunden werden"
+        exit
+    elif [ -z "$notify" ]; then
+        echo "notify-send konnte nicht gefunden werden"
+        exit
+    elif [ -z "$wget" ]; then
+        echo "wget konnte nicht gefunden werden"
+        exit
+    fi
 }
 
 notify_header="Wetterwarnungen für Coburg"
@@ -15,20 +32,7 @@ landkreis=COX
 image_viewer=display # must be able to handle URLs
 automode=false
 
-img_viewer=$(whereis $image_viewer | awk '{print $2}')
-notify=$(whereis notify-send | awk '{print $2}')
-wget=$(whereis wget | awk '{print $2}')
-
-if [ -z "$img_viewer" ]; then
-    echo "$image_viewer konnte nicht gefunden werden"
-    exit
-elif [ -z "$notify" ]; then
-    echo "notify-send konnte nicht gefunden werden"
-    exit
-elif [ -z "$wget" ]; then
-    echo "wget konnte nicht gefunden werden"
-    exit
-fi
+checkDependencies
 
 if [ -n "$1" ]; then
     if [ "$1" == "auto" ]; then
