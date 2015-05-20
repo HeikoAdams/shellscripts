@@ -1,10 +1,18 @@
 #!/bin/bash
+function initURLS {
+    warning_url="http://www.wettergefahren.de/dyn/app/ws/html/reports/${landkreis}_warning_de.html"
+    timeline_url="http://www.wettergefahren.de/dyn/app/ws/maps/${landkreis}_timeline.png"	
+}
+
+function invalidLK {
+    $notify --icon=$popup_icon """ungültiger Landkreis""" "ungültiger Landkreis: $1"
+    exit
+}
+
 notify_header="Wetterwarnungen für Coburg"
 popup_icon=~/Bilder/Wetterwarnung.png
 landkreis=COX
 image_viewer=display # must be able to handle URLs
-warning_url="http://www.wettergefahren.de/dyn/app/ws/html/reports/${landkreis}_warning_de.html"
-timeline_url="http://www.wettergefahren.de/dyn/app/ws/maps/${landkreis}_timeline.png"
 automode=false
 
 img_viewer=$(whereis $image_viewer | awk '{print $2}')
@@ -31,18 +39,17 @@ if [ -n "$1" ]; then
         if [ "$size" -eq 3 ]; then
             landkreis=$1
             notify_header="Wetterwarnungen für "$landkreis
-            warning_url="http://www.wettergefahren.de/dyn/app/ws/html/reports/${landkreis}_warning_de.html"
-            timeline_url="http://www.wettergefahren.de/dyn/app/ws/maps/${landkreis}_timeline.png"
+            initURLS
             $wget $warning_url -q -O -
             if [ $? != 0 ]; then
-                $notify --icon=$popup_icon """ungültiger Landkreis""" "ungültiger Landkreis: $1"
-                exit
+                invalidLK
             fi
         else
-            $notify --icon=$popup_icon """ungültiger Landkreis""" "ungültiger Landkreis: $1"
-            exit
+            invalidLK
         fi
     fi
+else
+    initURLS
 fi
 
 textstring=$($wget $warning_url -q -O -  | grep -i -e "warnung vor" -e "vorabinformation" | sed s/\<\\/p\>//g ) 
