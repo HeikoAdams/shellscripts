@@ -34,6 +34,7 @@ if [ -z "$SOURCE" ]; then
 fi
 NAME=$(cat SPECS/$1.spec | grep Name: | head -1 | awk '{print $2}');
 PRJNAME=$(cat SPECS/$1.spec | grep prjname | head -1 | awk '{print $3}');
+PKGNAME=$(cat SPECS/$1.spec | grep pkgname | head -1 | awk '{print $3}');
 VERSION=$(cat SPECS/$1.spec | grep Version: | head -1 | awk '{print $2}');
 COMMIT=$(cat SPECS/$1.spec | grep commit | head -1 | awk '{print $3}');
 
@@ -72,6 +73,10 @@ if [ "$download" == "j" ]; then
 	if [ -n "$PRJNAME" ]; then
 		MATCH="%{prjname}"
 		SOURCE=${SOURCE//$MATCH/$PRJNAME}
+	fi
+	if [ -n "$PKGNAME" ]; then
+		MATCH="%{pkgname}"
+		SOURCE=${SOURCE//$MATCH/$PKGNAME}
 	fi
 	if [ -n "$COMMIT" ]; then
 		MATCH="%{commit}"
@@ -272,6 +277,8 @@ if [ -n "$CLI" ]; then
 				CHROOTS=$(cat $HOME/rpmbuild/chroots.conf | grep $copr)
 				CHROOTS=${CHROOTS#*=}
 			fi
+
+			SRPM=$(basename $SRPM)
 
 			if [ -z "$CHROOTS" ]; then
 				echo
