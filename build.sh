@@ -28,6 +28,12 @@ CURL=$(whereis curl | awk '{print $2}')
 CLI=$(whereis copr-cli | awk '{print $2}')
 
 ARCH=$(cat SPECS/$1.spec | grep BuildArch: | awk '{print $2}');
+# Wenn im SPEC keine BuildArch angegeben ist, für die eigene Prozessor-
+# Architektur bauen
+if [ -z "$ARCH" ]; then
+	BARCH=$(uname -m)
+fi
+
 SOURCE=$(cat SPECS/$1.spec | grep Source: | awk '{print $2}');
 if [ -z "$SOURCE" ]; then
 	SOURCE=$(cat SPECS/$1.spec | grep Source0: | awk '{print $2}');
@@ -37,6 +43,11 @@ PRJNAME=$(cat SPECS/$1.spec | grep prjname | head -1 | awk '{print $3}');
 PKGNAME=$(cat SPECS/$1.spec | grep pkgname | head -1 | awk '{print $3}');
 VERSION=$(cat SPECS/$1.spec | grep Version: | head -1 | awk '{print $2}');
 COMMIT=$(cat SPECS/$1.spec | grep commit | head -1 | awk '{print $3}');
+# Wenn die Quellen aus Git kommen, auch noch den Git-Hash berechnen
+if [ -n "$COMMIT" ]; then
+	HASH=${COMMIT:0:7};
+fi
+
 
 # FTP-Zugangsdaten auslesen sowie URL des SRPM auslesen
 if [ -e "$HOME/rpmbuild/ftp.conf" ]; then
@@ -45,17 +56,6 @@ else
 	echo
 	echo "$HOME/rpmbuild/ftp.conf existiert nicht!"
 	exit
-fi
-
-# Wenn die Quellen aus Git kommen, auch noch den Git-Hash berechnen
-if [ -n "$COMMIT" ]; then
-	HASH=${COMMIT:0:7};
-fi
-
-# Wenn im SPEC keine BuildArch angegeben ist, für die eigene Prozessor-
-# Architektur bauen
-if [ -z "$ARCH" ]; then
-	BARCH=$(uname -m)
 fi
 
 if [ $AUTO == true ]; then
@@ -148,6 +148,7 @@ fi
 # Pfad zum SRPM generieren
 SRPM=$(find -samefile SRPMS/$1* -type f)
 SRPM=$(readlink -f $SRPM)
+SRCRPM=$(basename $SRPM)
 
 if [ -z "$SRPM" ]; then
 	echo
@@ -278,11 +279,9 @@ if [ -n "$CLI" ]; then
 				CHROOTS=${CHROOTS#*=}
 			fi
 
-			SRPM=$(basename $SRPM)
-
 			if [ -z "$CHROOTS" ]; then
 				echo
-				$CLI build "$copr" http://$HTTPHOST/$HTTPPATH/$SRPM
+				$CLI build "$copr" http://$HTTPHOST/$HTTPPATH/$SRCRPM
 			else
 				echo
 				OLDIFS=$IFS
@@ -291,7 +290,7 @@ if [ -n "$CLI" ]; then
 					CMDLINE="$CMDLINE -r $CHROOT"
 				done
 				IFS=$OLDIFS
-				$CLI build "$copr" $CMDLINE http://$HTTPHOST/$HTTPPATH/$SRPM
+				$CLI build "$copr" $CMDLINE http://$HTTPHOST/$HTTPPATH/$SRCRPM
 				exit
 			fi
 		else
