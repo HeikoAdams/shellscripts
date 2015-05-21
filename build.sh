@@ -1,11 +1,43 @@
 #! /bin/bash
 
+function initVars {
+	WDIR=$(pwd)
+	# benötigte Variable befüllen
+	RPMBUILD=$(whereis rpmbuild | awk '{print $2}')
+	WGET=$(whereis wget | awk '{print $2}')
+	MOCK=$(whereis mock | awk '{print $2}')
+	CURL=$(whereis curl | awk '{print $2}')
+	CLI=$(whereis copr-cli | awk '{print $2}')
+
+	ARCH=$(cat SPECS/$PRJ.spec | grep BuildArch: | awk '{print $2}');
+	# Wenn im SPEC keine BuildArch angegeben ist, für die eigene Prozessor-
+	# Architektur bauen
+	if [ -z "$ARCH" ]; then
+		BARCH=$(uname -m)
+	fi
+
+	SOURCE=$(cat SPECS/$PRJ.spec | grep Source: | awk '{print $2}');
+	if [ -z "$SOURCE" ]; then
+		SOURCE=$(cat SPECS/$PRJ.spec | grep Source0: | awk '{print $2}');
+	fi
+	NAME=$(cat SPECS/$PRJ.spec | grep Name: | head -1 | awk '{print $2}');
+	PRJNAME=$(cat SPECS/$PRJ.spec | grep prjname | head -1 | awk '{print $3}');
+	PKGNAME=$(cat SPECS/$PRJ.spec | grep pkgname | head -1 | awk '{print $3}');
+	VERSION=$(cat SPECS/$PRJ.spec | grep Version: | head -1 | awk '{print $2}');
+	COMMIT=$(cat SPECS/$PRJ.spec | grep commit | head -1 | awk '{print $3}');
+	# Wenn die Quellen aus Git kommen, auch noch den Git-Hash berechnen
+	if [ -n "$COMMIT" ]; then
+		HASH=${COMMIT:0:7};
+	fi
+}
+
 if [ -z "$1" ]
 then
 	echo "Geben Sie ein zu verarbeitendes Specfile an"
 	exit
 fi
 
+PRJ=$1
 AUTO=true
 
 if [ -n "$2" ]; then
@@ -14,40 +46,11 @@ if [ -n "$2" ]; then
 	fi
 fi
 
-WDIR=$(pwd)
+initVars
 
 if [ "$WDIR" != "$HOME/rpmbuild" ]; then
 	cd $HOME/rpmbuild
 fi
-
-# benötigte Variable befüllen
-RPMBUILD=$(whereis rpmbuild | awk '{print $2}')
-WGET=$(whereis wget | awk '{print $2}')
-MOCK=$(whereis mock | awk '{print $2}')
-CURL=$(whereis curl | awk '{print $2}')
-CLI=$(whereis copr-cli | awk '{print $2}')
-
-ARCH=$(cat SPECS/$1.spec | grep BuildArch: | awk '{print $2}');
-# Wenn im SPEC keine BuildArch angegeben ist, für die eigene Prozessor-
-# Architektur bauen
-if [ -z "$ARCH" ]; then
-	BARCH=$(uname -m)
-fi
-
-SOURCE=$(cat SPECS/$1.spec | grep Source: | awk '{print $2}');
-if [ -z "$SOURCE" ]; then
-	SOURCE=$(cat SPECS/$1.spec | grep Source0: | awk '{print $2}');
-fi
-NAME=$(cat SPECS/$1.spec | grep Name: | head -1 | awk '{print $2}');
-PRJNAME=$(cat SPECS/$1.spec | grep prjname | head -1 | awk '{print $3}');
-PKGNAME=$(cat SPECS/$1.spec | grep pkgname | head -1 | awk '{print $3}');
-VERSION=$(cat SPECS/$1.spec | grep Version: | head -1 | awk '{print $2}');
-COMMIT=$(cat SPECS/$1.spec | grep commit | head -1 | awk '{print $3}');
-# Wenn die Quellen aus Git kommen, auch noch den Git-Hash berechnen
-if [ -n "$COMMIT" ]; then
-	HASH=${COMMIT:0:7};
-fi
-
 
 # FTP-Zugangsdaten auslesen sowie URL des SRPM auslesen
 if [ -e "$HOME/rpmbuild/ftp.conf" ]; then
@@ -91,9 +94,9 @@ if [ "$download" == "j" ]; then
 	DEST=$(echo $SOURCE | awk -F\/ '{print $NF}')
 
 	echo "lösche alte Sourcen ..."
-	rm -f SOURCES/*$1*.gz
-	rm -f SOURCES/*$1*.xz
-	rm -f SOURCES/*$1*.bz2
+	rm -f SOURCES/*$PRJ*.gz
+	rm -f SOURCES/*$PRJ*.xz
+	rm -f SOURCES/*$PRJ*.bz2
 	echo "Lade Source-Archiv $SOURCE herunter ..."
 	if [ -n "$WGET" ]; then
 		$WGET $SOURCE -q -O SOURCES/$DEST
@@ -117,15 +120,15 @@ rm -rf BUILDDIR/*
 rm -rf BUILDROOT/*
 
 echo "lösche vorhandene RPMs ..."
-rm -rf RPMS/i686/*$1*.rpm
-rm -rf RPMS/noarch/*$1*.rpm
-rm -rf RPMS/x86_64/*$1*.rpm
-rm -rf SRPMS/*$1*.rpm
+rm -rf RPMS/i686/*$PRJ*.rpm
+rm -rf RPMS/noarch/*$PRJ*.rpm
+rm -rf RPMS/x86_64/*$PRJ*.rpm
+rm -rf SRPMS/*$PRJ*.rpm
 
 for DIR in $(ls /var/lib/mock/)
 do
 	RESDIR="/var/lib/mock/$DIR/result"
-	rm -rf $RESDIR/*$1*.rpm
+	rm -rf $RESDIR/*$PRJ*.rpm
 done
 
 echo
@@ -133,7 +136,7 @@ echo -e "Erstelle ${1} Source-Paket"
 
 # SRPM erstellen
 if [ -n "$RPMBUILD" ]; then
-	$RPMBUILD -bs SPECS/$1.spec
+	$RPMBUILD -bs SPECS/$PRJ.spec
 	if [ $? != 0 ]; then
 		echo
 		echo "SRPM-Build fehlgeschlagen!"
@@ -146,7 +149,7 @@ else
 fi
 
 # Pfad zum SRPM generieren
-SRPM=$(find -samefile SRPMS/$1* -type f)
+SRPM=$(find -samefile SRPMS/$PRJ* -type f)
 SRPM=$(readlink -f $SRPM)
 SRCRPM=$(basename $SRPM)
 
@@ -228,7 +231,7 @@ fi
 if [ -n "$CLI" ]; then
 	# Das zu verwendende COPR versuchen, zu ermitteln
 	echo "Suche nach passendem COPR ..."
-	for coprs in $($CLI list | grep Name | awk '{print $2}' | grep $1)
+	for coprs in $($CLI list | grep Name | awk '{print $2}' | grep $PRJ)
 	do
 		if [ $AUTO == true ]; then
 			use="j"
@@ -247,7 +250,7 @@ if [ -n "$CLI" ]; then
 	if [ -z "$copr" ]; then
 		if [ -e "$HOME/rpmbuild/coprs.conf" ]; then
 			echo "Suche in coprs.conf nach passendem COPR ..."
-			coprs=$(cat $HOME/rpmbuild/coprs.conf | grep $1)
+			coprs=$(cat $HOME/rpmbuild/coprs.conf | grep $PRJ)
 			coprs=${coprs#*=}
 			if [ -n "$coprs" ]; then
 				if [ $AUTO == true ]; then
