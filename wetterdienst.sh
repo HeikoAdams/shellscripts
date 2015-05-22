@@ -5,20 +5,20 @@ function initURLS {
 }
 
 function invalidLK {
-    $notify --icon=$popup_icon """ungültiger Landkreis""" "ungültiger Landkreis: ${landkreis}"
+    $notify --notification --text="ungültiger Landkreis: ${landkreis}"
     exit
 }
 
 function checkDependencies {
     img_viewer=$(whereis $image_viewer | awk '{print $2}')
-    notify=$(whereis notify-send | awk '{print $2}')
+    notify=$(whereis zenity | awk '{print $2}')
     wget=$(whereis wget | awk '{print $2}')
 
     if [ -z "$img_viewer" ]; then
         echo "$image_viewer konnte nicht gefunden werden"
         exit
     elif [ -z "$notify" ]; then
-        echo "notify-send konnte nicht gefunden werden"
+        echo "zenity konnte nicht gefunden werden"
         exit
     elif [ -z "$wget" ]; then
         echo "wget konnte nicht gefunden werden"
@@ -26,8 +26,6 @@ function checkDependencies {
     fi
 }
 
-notify_header="Wetterwarnungen für Coburg"
-popup_icon=~/Bilder/Wetterwarnung.png
 landkreis=COX
 image_viewer=display # must be able to handle URLs
 automode=false
@@ -42,7 +40,6 @@ if [ -n "$1" ]; then
         size=${#i}
         if [ "$size" -eq 3 ]; then
             landkreis=$1
-            notify_header="Wetterwarnungen für "$landkreis
             initURLS
             $wget $warning_url -q -O -
             if [ $? != 0 ]; then
@@ -59,9 +56,9 @@ fi
 textstring=$($wget $warning_url -q -O -  | grep -i -e "warnung vor" -e "vorabinformation" | sed s/\<\\/p\>//g ) 
 
 if [ "$textstring" = ""  ]; then 
-    $notify --icon=$popup_icon """$notify_header""" "keine Warnungen vorhanden"
+    $notify --notification --text="keine Warnungen vorhanden"
 else 
-    $notify --icon=$popup_icon """$notify_header""" """$textstring"""
+    $notify --notification --text="""$textstring"""
     if [ "$automode" == false ]; then
         $img_viewer $timeline_url &
         # xdg-open $warning_url &
