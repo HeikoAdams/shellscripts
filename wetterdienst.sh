@@ -1,4 +1,7 @@
 #!/bin/bash
+set -x
+echo $DISPLAY
+
 function initURLS {
     header="Wetterwarnungen für Landkreis ${landkreis}"
     warning_url="http://www.wettergefahren.de/dyn/app/ws/html/reports/${landkreis}_warning_de.html"
@@ -7,9 +10,9 @@ function initURLS {
 
 function notificationSend {
     if [ "$automode" == false ]; then
-        $zenity --display=:0.0 --notification --text="$1"
+        $zenity --notification --text="""$1"""
     else
-        $notify "$2" "$1"
+        $notify """$2""" """$1"""
     fi
 }
 
