@@ -1,6 +1,6 @@
 #!/bin/bash
-set -x
-echo $DISPLAY
+#set -x
+#echo $DISPLAY
 
 function initURLS {
     header="Wetterwarnungen für Landkreis ${landkreis}"
