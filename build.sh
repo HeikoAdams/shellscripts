@@ -1,18 +1,6 @@
 #! /bin/bash
 
 function initVars {
-	AUTO=true
-	BINARY=false
-
-	if [ -n "$2" ]; then
-		if [ "$2" == "noauto" ]; then
-			AUTO=false
-		fi
-		if [ "$2" == "binary" ]; then
-			BINARY=true
-		fi
-	fi
-
 	WDIR=$(pwd)
 	# benötigte Variable befüllen
 	RPMBUILD=$(whereis rpmbuild | awk '{print $2}')
@@ -50,6 +38,17 @@ then
 fi
 
 PRJ=$1
+AUTO=true
+BINARY=false
+
+if [ -n "$2" ]; then
+	if [ "$2" == "noauto" ]; then
+		AUTO=false
+	fi
+	if [ "$2" == "binary" ]; then
+		BINARY=true
+	fi
+fi
 initVars
 
 if [ "$WDIR" != "$HOME/rpmbuild" ]; then
@@ -163,10 +162,10 @@ if [ -z "$SRPM" ]; then
 	exit
 fi
 
-if [ $AUTO == true ]; then
-	binary="n"
-elif [ $BINARY == true ]; then
+if [ $BINARY == true ]; then
 	binary="j"
+elif [ $AUTO == true ]; then
+	binary="n"
 else
 	echo
 	read -p "Binärpakete erstellen? (j/n/q) " binary
