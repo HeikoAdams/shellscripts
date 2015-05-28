@@ -103,10 +103,10 @@ if [ "$download" == "j" ]; then
 	echo "Lade Source-Archiv $SOURCE herunter ..."
 	if [ -n "$WGET" ]; then
 		$WGET $SOURCE -q -O SOURCES/$DEST
-
-		if [ $? != 0 ]; then
+        RC=$?
+		if [ $RC != 0 ]; then
 			echo
-			echo "Download fehlgeschlagen!"
+			echo "Download fehlgeschlagen! (Fehlercode $RC)"
 			exit
 		fi
 	else
@@ -140,9 +140,10 @@ echo -e "Erstelle ${1} Source-Paket"
 # SRPM erstellen
 if [ -n "$RPMBUILD" ]; then
 	$RPMBUILD -bs SPECS/$PRJ.spec
-	if [ $? != 0 ]; then
+	RC=$?
+	if [ $RC != 0 ]; then
 		echo
-		echo "SRPM-Build fehlgeschlagen!"
+		echo "SRPM-Build fehlgeschlagen! (Fehlercode $RC)"
 		exit
 	fi
 else
@@ -174,10 +175,10 @@ if [ "$binary" == "j" ]; then
 	echo "Erstelle Binärpaket ..."
 	if [ -n "$MOCK" ]; then
 		$MOCK rebuild $SRPM --target=$BARCH --dnf
-
-		if [ $? != 0 ]; then
+        RC=$?
+		if [ $RC != 0 ]; then
 			echo
-			echo "Build fehlgeschlagen!"
+			echo "Build fehlgeschlagen! (Fehlercode $RC)"
 			exit
 		fi
 	else
@@ -202,10 +203,10 @@ if [ "$upload" == "j" ]; then
 		echo "lade $SRPM auf FTP-Server hoch ..."
 		if [ -n "$CURL" ]; then
 			$CURL -T $SRPM -u "$FTPUSER:$FTPPWD" ftp://$FTPHOST/$FTPPATH
-
-			if [ $? != 0 ]; then
+            RC=$?
+			if [ $RC != 0 ]; then
 				echo
-				echo "Upload fehlgeschlagen!"
+				echo "Upload fehlgeschlagen! (Fehlercode $RC)"
 			fi
 		else
 			echo
