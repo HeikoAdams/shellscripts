@@ -1,7 +1,14 @@
 #! /bin/bash
 
+function prepareBuild {
+    WDIR=$(pwd)
+    
+    if [ "$WDIR" != "$HOME/rpmbuild" ]; then
+	    cd $HOME/rpmbuild 
+    fi
+}
+
 function initVars {
-	WDIR=$(pwd)
 	# benötigte Variable befüllen
 	RPMBUILD=$(whereis rpmbuild | awk '{print $2}')
 	WGET=$(whereis wget | awk '{print $2}')
@@ -49,11 +56,9 @@ if [ -n "$2" ]; then
 		BINARY=true
 	fi
 fi
-initVars
 
-if [ "$WDIR" != "$HOME/rpmbuild" ]; then
-	cd $HOME/rpmbuild
-fi
+prepareBuild
+initVars
 
 # FTP-Zugangsdaten auslesen sowie URL des SRPM auslesen
 if [ -e "$HOME/rpmbuild/ftp.conf" ]; then
