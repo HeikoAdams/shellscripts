@@ -86,3 +86,8 @@ else
         kill $!
     fi
 fi
+
+if [ "$automode" == true ]; then
+    sleep 1h
+    (exec $0)
+fi
