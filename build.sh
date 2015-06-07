@@ -329,9 +329,9 @@ else
     then
         echo "Geben Sie ein zu verarbeitendes Specfile an"
         exit
+    else
+        buildProject "$1" "$2"
     fi
-
-    buildProject "$1" "$2"
 fi
 
 cd ..
