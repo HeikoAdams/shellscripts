@@ -54,6 +54,13 @@ checkDependencies
 if [ -n "$1" ]; then
     if [ "$1" == "auto" ]; then
         automode=true
+
+        if [ "$1" == "$2" ]; then
+            interval="30m"
+        else
+            interval=$2
+        fi
+
         initURLS
     else
         i="$1"
@@ -88,6 +95,6 @@ else
 fi
 
 if [ "$automode" == true ]; then
-    sleep 1h
-    (exec $0)
+    sleep $interval
+    exec $0
 fi
