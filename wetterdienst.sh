@@ -55,7 +55,7 @@ if [ -n "$1" ]; then
     if [ "$1" == "auto" ]; then
         automode=true
 
-        if [ "$1" == "$2" ]; then
+        if [ -z "$2" ] || [ "$1" == "$2" ]; then
             interval="30m"
         else
             interval=$2
