@@ -83,7 +83,9 @@ fi
 textstring=$($wget $warning_url -q -O -  | grep -i -e "warnung vor" -e "vorabinformation" | sed s/\<\\/p\>//g ) 
 
 if [ "$textstring" = ""  ]; then 
-    notificationSend "keine Warnungen vorhanden" "$header"
+    if [ "$automode" == false ]; then
+        notificationSend "keine Warnungen vorhanden" "$header"
+    fi
 else 
     notificationSend """$textstring""" "$header"
     if [ "$automode" == false ]; then
@@ -96,5 +98,5 @@ fi
 
 if [ "$automode" == true ]; then
     sleep $interval
-    exec $0
+    exec $0 $@
 fi
