@@ -9,10 +9,10 @@ function initURLS {
 }
 
 function notificationSend {
-    if [ "$automode" == false ]; then
-        $zenity --notification --text="""$1"""
-    else
+    if [ "$automode" = true ]; then
         $notify """$2""" """$1"""
+    else
+        $zenity --notification --text="""$1"""
     fi
 }
 
@@ -28,19 +28,19 @@ function checkDependencies {
     wget=$(whereis wget | awk '{print $2}')
 
     if [ -z "$img_viewer" ]; then
-        echo "$image_viewer konnte nicht gefunden werden"
+        notificationSend  "$image_viewer konnte nicht gefunden werden" "Wetterdienst"
         exit
     fi
     if [ -z "$zenity" ]; then
-        echo "zenity konnte nicht gefunden werden"
+        notificationSend  "zenity konnte nicht gefunden werden" "Wetterdienst"
         exit
     fi
     if [ -z "$notify" ]; then
-        echo "notify-send konnte nicht gefunden werden"
+        notificationSend  "notify-send konnte nicht gefunden werden" "Wetterdienst"
         exit
     fi
     if [ -z "$wget" ]; then
-        echo "wget konnte nicht gefunden werden"
+        notificationSend  "wget konnte nicht gefunden werden" "Wetterdienst"
         exit
     fi
 }
@@ -82,13 +82,13 @@ fi
 
 textstring=$($wget $warning_url -q -O -  | grep -i -e "warnung vor" -e "vorabinformation" | sed s/\<\\/p\>//g ) 
 
-if [ "$textstring" = ""  ]; then 
-    if [ "$automode" == false ]; then
+if [ -z "$textstring" ]; then 
+    if [ "$automode" != true ]; then
         notificationSend "keine Warnungen vorhanden" "$header"
     fi
 else 
     notificationSend """$textstring""" "$header"
-    if [ "$automode" == false ]; then
+    if [ "$automode" != true ]; then
         $img_viewer $timeline_url &
         # xdg-open $warning_url &
         sleep 4
@@ -96,7 +96,7 @@ else
     fi
 fi
 
-if [ "$automode" == true ]; then
+if [ "$automode" = true ]; then
     sleep $interval
     exec $0 $@
 fi
