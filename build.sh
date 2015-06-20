@@ -8,9 +8,16 @@ function prepareBuild {
     fi
 }
 
+function notificationSend {
+    $NOTIFY "Fehler" """$1"""
+    echo
+    echo """$1"""
+}
+
 function initVars {
     # benötigte Variable befüllen
     RPMBUILD=$(whereis rpmbuild | awk '{print $2}')
+    NOTIFY=$(whereis notify-send | awk '{print $2}')
     WGET=$(whereis wget | awk '{print $2}')
     MOCK=$(whereis mock | awk '{print $2}')
     CURL=$(whereis curl | awk '{print $2}')
@@ -58,8 +65,7 @@ function buildProject {
     if [ -e "$HOME/rpmbuild/ftp.conf" ]; then
         source $HOME/rpmbuild/ftp.conf
     else
-        echo
-        echo "$HOME/rpmbuild/ftp.conf existiert nicht!"
+        notificationSend "$HOME/rpmbuild/ftp.conf existiert nicht!"
         exit
     fi
 
@@ -104,13 +110,11 @@ function buildProject {
             $WGET $SOURCE -q -O SOURCES/$DEST
             RC=$?
             if [ $RC != 0 ]; then
-                echo
-                echo "Download fehlgeschlagen! (Fehlercode $RC)"
+                notificationSend "Download fehlgeschlagen! (Fehlercode $RC)"
                 exit
             fi
         else
-            echo
-            echo "wget ist nicht installiert!"
+            notificationSend "wget ist nicht installiert!"
             exit
         fi
     fi
@@ -141,13 +145,11 @@ function buildProject {
         $RPMBUILD -bs SPECS/$PRJ.spec
         RC=$?
         if [ $RC != 0 ]; then
-            echo
-            echo "SRPM-Build fehlgeschlagen! (Fehlercode $RC)"
+            notificationSend "SRPM-Build fehlgeschlagen! (Fehlercode $RC)"
             exit
         fi
     else
-        echo
-        echo "rpmbuild ist nicht installiert!"
+        notificationSend "rpmbuild ist nicht installiert!"
         exit
     fi
 
@@ -157,8 +159,7 @@ function buildProject {
     SRCRPM=$(basename $SRPM)
 
     if [ -z "$SRPM" ]; then
-        echo
-        echo "konnte das SRPM nicht finden!"
+        notificationSend "konnte das SRPM nicht finden!"
         exit
     fi
 
@@ -176,13 +177,11 @@ function buildProject {
             $MOCK rebuild $SRPM --target=$BARCH --dnf
             RC=$?
             if [ $RC != 0 ]; then
-                echo
-                echo "Build fehlgeschlagen! (Fehlercode $RC)"
+                notificationSend "Build fehlgeschlagen! (Fehlercode $RC)"
                 exit
             fi
         else
-            echo
-            echo "mock ist nicht installiert"
+            notificationSend "mock ist nicht installiert"
             exit
         fi
     fi
@@ -204,17 +203,15 @@ function buildProject {
                 $CURL -T $SRPM -u "$FTPUSER:$FTPPWD" ftp://$FTPHOST/$FTPPATH
                 RC=$?
                 if [ $RC != 0 ]; then
-                    echo
-                    echo "Upload fehlgeschlagen! (Fehlercode $RC)"
+                    notificationSend "Upload fehlgeschlagen! (Fehlercode $RC)"
+                    exit
                 fi
             else
-                echo
-                echo "curl ist nicht installiert!"
+                notificationSend "curl ist nicht installiert!"
                 exit
             fi
         else
-            echo
-            echo "FTP-Zugangsdaten sind nicht konfiguriert"
+            notificationSend "FTP-Zugangsdaten sind nicht konfiguriert"
             exit
         fi
     fi
@@ -302,14 +299,12 @@ function buildProject {
                     exit
                 fi
             else
-                echo
-                echo "$HOME/rpmbuild/ftp.conf ist fehlerhaft!"
+                notificationSend "$HOME/rpmbuild/ftp.conf ist fehlerhaft!"
                 exit
             fi
         fi
     else
-        echo
-        echo "copr-cli ist nicht installiert!"
+        notificationSend "copr-cli ist nicht installiert!"
         exit
     fi
 }
@@ -327,7 +322,7 @@ if [ -z "$1" ]; then
 else
     if [ -z "$1" ]
     then
-        echo "Geben Sie ein zu verarbeitendes Specfile an"
+        notificationSend "Geben Sie ein zu verarbeitendes Specfile an"
         exit
     else
         buildProject "$1" "$2"
