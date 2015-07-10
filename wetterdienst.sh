@@ -45,6 +45,24 @@ function checkDependencies {
     fi
 }
 
+function getWarnings {
+	textstring=$($wget $warning_url -q -O -  | grep -i -e "warnung vor" -e "vorabinformation" | sed s/\<\\/p\>//g ) 
+
+	if [ -z "$textstring" ]; then 
+		if [ "$automode" != true ]; then
+			notificationSend "keine Warnungen vorhanden" "$header"
+		fi
+	else 
+		notificationSend """$textstring""" "$header"
+		if [ "$automode" != true ]; then
+			$img_viewer $timeline_url &
+			# xdg-open $warning_url &
+			sleep 4
+			kill $!
+		fi
+	fi
+}
+
 landkreis=COX
 image_viewer=display # must be able to handle URLs
 automode=false
@@ -80,21 +98,7 @@ else
     initURLS
 fi
 
-textstring=$($wget $warning_url -q -O -  | grep -i -e "warnung vor" -e "vorabinformation" | sed s/\<\\/p\>//g ) 
-
-if [ -z "$textstring" ]; then 
-    if [ "$automode" != true ]; then
-        notificationSend "keine Warnungen vorhanden" "$header"
-    fi
-else 
-    notificationSend """$textstring""" "$header"
-    if [ "$automode" != true ]; then
-        $img_viewer $timeline_url &
-        # xdg-open $warning_url &
-        sleep 4
-        kill $!
-    fi
-fi
+getWarnings
 
 if [ "$automode" = true ]; then
     sleep $interval
