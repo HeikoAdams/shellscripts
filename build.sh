@@ -101,21 +101,25 @@ function buildProject {
         # Dateinamen des lokalen Sourcen-Archivs generieren
         DEST=$(echo $SOURCE | awk -F\/ '{print $NF}')
 
-        echo "lösche alte Sourcen ..."
-        rm -f SOURCES/*$PRJ*.gz
-        rm -f SOURCES/*$PRJ*.xz
-        rm -f SOURCES/*$PRJ*.bz2
-        echo "Lade Source-Archiv $SOURCE herunter ..."
-        if [ -n "$WGET" ]; then
-            $WGET $SOURCE -q -O SOURCES/$DEST
-            RC=$?
-            if [ $RC != 0 ]; then
-                notificationSend "Download fehlgeschlagen! (Fehlercode $RC)"
+        if [ ${SOURCE:0:3} == "ftp" ] || [ ${SOURCE:0:4} == "http" ]; then
+
+            echo "lösche alte Sourcen ..."
+            rm -f SOURCES/*$PRJ*.gz
+            rm -f SOURCES/*$PRJ*.xz
+            rm -f SOURCES/*$PRJ*.bz2
+            echo "Lade Source-Archiv $SOURCE herunter ..."
+
+            if [ -n "$WGET" ]; then
+                $WGET $SOURCE -q -O SOURCES/$DEST
+                RC=$?
+                if [ $RC != 0 ]; then
+                    notificationSend "Download fehlgeschlagen! (Fehlercode $RC)"
+                    exit
+                fi
+            else
+                notificationSend "wget ist nicht installiert!"
                 exit
             fi
-        else
-            notificationSend "wget ist nicht installiert!"
-            exit
         fi
     fi
 
