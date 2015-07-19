@@ -40,6 +40,7 @@ function initVars {
     BRANCH=$(cat SPECS/$PRJ.spec | grep branch | head -1 | awk '{print $3}');
     VERSION=$(cat SPECS/$PRJ.spec | grep Version: | head -1 | awk '{print $2}');
     COMMIT=$(cat SPECS/$PRJ.spec | grep commit | head -1 | awk '{print $3}');
+    BZR_REV=$(cat SPECS/$PRJ.spec | grep bzr_rev | head -1 | awk '{print $3}');
     # Wenn die Quellen aus Git kommen, auch noch den Git-Hash berechnen
     if [ -n "$COMMIT" ]; then
         HASH=${COMMIT:0:7};
@@ -101,6 +102,10 @@ function buildProject {
         if [ -n "$HASH" ]; then
             MATCH="%{githash}"
             SOURCE=${SOURCE//$MATCH/$HASH}
+        fi
+        if [ -n "$BZR_REV" ]; then
+            MATCH="%{bzr_rev}"
+            SOURCE=${SOURCE//$MATCH/$BZR_REV}
         fi
 
         # Dateinamen des lokalen Sourcen-Archivs generieren
