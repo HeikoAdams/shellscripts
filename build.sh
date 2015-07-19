@@ -37,6 +37,7 @@ function initVars {
     NAME=$(cat SPECS/$PRJ.spec | grep Name: | head -1 | awk '{print $2}');
     PRJNAME=$(cat SPECS/$PRJ.spec | grep prjname | head -1 | awk '{print $3}');
     PKGNAME=$(cat SPECS/$PRJ.spec | grep pkgname | head -1 | awk '{print $3}');
+    BRANCH=$(cat SPECS/$PRJ.spec | grep branch | head -1 | awk '{print $3}');
     VERSION=$(cat SPECS/$PRJ.spec | grep Version: | head -1 | awk '{print $2}');
     COMMIT=$(cat SPECS/$PRJ.spec | grep commit | head -1 | awk '{print $3}');
     # Wenn die Quellen aus Git kommen, auch noch den Git-Hash berechnen
@@ -88,6 +89,10 @@ function buildProject {
         if [ -n "$PKGNAME" ]; then
             MATCH="%{pkgname}"
             SOURCE=${SOURCE//$MATCH/$PKGNAME}
+        fi
+        if [ -n "$BRANCH" ]; then
+            MATCH="%{branch}"
+            SOURCE=${SOURCE//$MATCH/$BRANCH}
         fi
         if [ -n "$COMMIT" ]; then
             MATCH="%{commit}"
