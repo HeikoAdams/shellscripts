@@ -334,13 +334,7 @@ if [ -z "$1" ]; then
         buildProject "$SFILE" "$2"
     done
 else
-    if [ -z "$1" ]
-    then
-        notificationSend "Geben Sie ein zu verarbeitendes Specfile an"
-        exit
-    else
-        buildProject "$1" "$2"
-    fi
+    buildProject "$1" "$2"
 fi
 
 cd ..
