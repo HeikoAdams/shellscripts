@@ -1,6 +1,4 @@
 /===================================================================\
-| bash_privacy.sh     = a scritp to override bash_history with a 
-|                       trimmed version
 | changebackground.sh = a script for Xfce < 4.10 to periodicly 
 |                       change the background if an imagelist 
 |                       is set as wallpaper

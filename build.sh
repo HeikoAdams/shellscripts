@@ -24,16 +24,7 @@ function initVars {
     CLI=$(whereis copr-cli | awk '{print $2}')
 
     ARCH=$(cat SPECS/$PRJ.spec | grep BuildArch: | awk '{print $2}');
-    # Wenn im SPEC keine BuildArch angegeben ist, für die eigene Prozessor-
-    # Architektur bauen
-    if [ -z "$ARCH" ]; then
-        BARCH=$(uname -m)
-    fi
-
     SOURCE=$(cat SPECS/$PRJ.spec | grep Source: | awk '{print $2}');
-    if [ -z "$SOURCE" ]; then
-        SOURCE=$(cat SPECS/$PRJ.spec | grep Source0: | awk '{print $2}');
-    fi
     NAME=$(cat SPECS/$PRJ.spec | grep Name: | head -1 | awk '{print $2}');
     PRJNAME=$(cat SPECS/$PRJ.spec | grep prjname | head -1 | awk '{print $3}');
     PKGNAME=$(cat SPECS/$PRJ.spec | grep pkgname | head -1 | awk '{print $3}');
@@ -41,6 +32,19 @@ function initVars {
     VERSION=$(cat SPECS/$PRJ.spec | grep Version: | head -1 | awk '{print $2}');
     COMMIT=$(cat SPECS/$PRJ.spec | grep commit | head -1 | awk '{print $3}');
     BZR_REV=$(cat SPECS/$PRJ.spec | grep bzr_rev | head -1 | awk '{print $3}');
+
+    # Wenn im SPEC keine BuildArch angegeben ist, für die eigene Prozessor-
+    # Architektur bauen
+    if [ -z "$ARCH" ]; then
+        BARCH=$(uname -m)
+    fi
+
+    # Falls keine Angabe zum Source-Tag gefunden wurde, im Source0-Tag
+    # nachschauen
+    if [ -z "$SOURCE" ]; then
+        SOURCE=$(cat SPECS/$PRJ.spec | grep Source0: | awk '{print $2}');
+    fi
+
     # Wenn die Quellen aus Git kommen, auch noch den Git-Hash berechnen
     if [ -n "$COMMIT" ]; then
         HASH=${COMMIT:0:7};
@@ -77,32 +81,39 @@ function buildProject {
         echo
         read -p "Sourcen herunterladen? (j/n) " download
     fi
+
     if [ "$download" == "j" ]; then
         # URL für den Download der Sourcen zusammenbauen
         MATCH="%{name}"
         SOURCE=${SOURCE//$MATCH/$NAME}
         MATCH="%{version}"
         SOURCE=${SOURCE//$MATCH/$VERSION}
+
         if [ -n "$PRJNAME" ]; then
             MATCH="%{prjname}"
             SOURCE=${SOURCE//$MATCH/$PRJNAME}
         fi
+
         if [ -n "$PKGNAME" ]; then
             MATCH="%{pkgname}"
             SOURCE=${SOURCE//$MATCH/$PKGNAME}
         fi
+
         if [ -n "$BRANCH" ]; then
             MATCH="%{branch}"
             SOURCE=${SOURCE//$MATCH/$BRANCH}
         fi
+
         if [ -n "$COMMIT" ]; then
             MATCH="%{commit}"
             SOURCE=${SOURCE//$MATCH/$COMMIT}
         fi
+
         if [ -n "$HASH" ]; then
             MATCH="%{githash}"
             SOURCE=${SOURCE//$MATCH/$HASH}
         fi
+
         if [ -n "$BZR_REV" ]; then
             MATCH="%{bzr_rev}"
             SOURCE=${SOURCE//$MATCH/$BZR_REV}
@@ -111,8 +122,8 @@ function buildProject {
         # Dateinamen des lokalen Sourcen-Archivs generieren
         DEST=$(echo $SOURCE | awk -F\/ '{print $NF}')
 
+        # Wenn eine URL als Source angegeben ist, die Datei herunterladen
         if [ ${SOURCE:0:3} == "ftp" ] || [ ${SOURCE:0:4} == "http" ]; then
-
             echo "lösche alte Sourcen ..."
             rm -f SOURCES/*$PRJ*.gz
             rm -f SOURCES/*$PRJ*.xz
@@ -145,8 +156,8 @@ function buildProject {
     rm -rf RPMS/x86_64/*$PRJ*.rpm
     rm -rf SRPMS/*$PRJ*.rpm
 
-    for DIR in $(ls /var/lib/mock/)
-    do
+    # Mock aufräumen
+    for DIR in $(ls /var/lib/mock/); do
         RESDIR="/var/lib/mock/$DIR/result"
         rm -rf $RESDIR/*$PRJ*.rpm
     done
@@ -185,6 +196,8 @@ function buildProject {
         echo
         read -p "Binärpakete erstellen? (j/n/q) " binary
     fi
+
+    # Das Binary bauen und paketieren
     if [ "$binary" == "j" ]; then
         echo "Erstelle Binärpaket ..."
         if [ -n "$MOCK" ]; then
@@ -199,6 +212,7 @@ function buildProject {
             exit
         fi
     fi
+
     if [ "$binary" == "q" ]; then
         exit
     fi
@@ -210,6 +224,8 @@ function buildProject {
         read -p "Upload des Source-Paketes? (j/n/q) " upload
     fi
 
+    # Das fertige SRPM auf den FTP-Server hochladen, damit COPR
+    # es verwenden kann
     if [ "$upload" == "j" ]; then
         if [ -n "$FTPHOST" ]; then
             echo "lade $SRPM auf FTP-Server hoch ..."
@@ -233,27 +249,27 @@ function buildProject {
         exit
     fi
 
-    # Binärpakete mit COPR bauen
     if [ $AUTO == true ]; then
         build="j"
     else
         echo
         read -p "Paket(e) im COPR bauen? (j/n/) " build
     fi
+
     if [ "$build" == "n" ]; then
         exit
     fi
-
+    
+    # COPR, übernehmen Sie
     if [ -n "$CLI" ]; then
-        # Das zu verwendende COPR versuchen, zu ermitteln
         echo "Suche nach passendem COPR ..."
-        for coprs in $($CLI list | grep Name | awk '{print $2}' | grep $PRJ)
-        do
+        for coprs in $($CLI list | grep Name | awk '{print $2}' | grep $PRJ); do
             if [ $AUTO == true ]; then
                 use="j"
             else
                 read -p "COPR $coprs verwenden? (j/n/q) " use
             fi
+
             if [ "$use" == "j" ]; then
                 copr=$coprs
                 break
@@ -268,12 +284,14 @@ function buildProject {
                 echo "Suche in coprs.conf nach passendem COPR ..."
                 coprs=$(cat $HOME/rpmbuild/coprs.conf | grep $PRJ)
                 coprs=${coprs#*=}
+
                 if [ -n "$coprs" ]; then
                     if [ $AUTO == true ]; then
                         use="j"
                     else
                         read -p "COPR $coprs verwenden? (j/n/q) " use
                     fi
+
                     if [ "$use" == "j" ]; then
                         copr=$coprs
                     elif [ "$use" == "q" ]; then
@@ -298,6 +316,7 @@ function buildProject {
                     CHROOTS=${CHROOTS#*=}
                 fi
 
+                # Paket(e) bauen
                 if [ -z "$CHROOTS" ]; then
                     echo
                     $CLI build "$copr" http://$HTTPHOST/$HTTPPATH/$SRCRPM
@@ -305,12 +324,13 @@ function buildProject {
                     echo
                     OLDIFS=$IFS
                     IFS=","
-                    for CHROOT in $CHROOTS;    do
+
+                    for CHROOT in $CHROOTS; do
                         CMDLINE="$CMDLINE -r $CHROOT"
                     done
+
                     IFS=$OLDIFS
                     $CLI build "$copr" $CMDLINE http://$HTTPHOST/$HTTPPATH/$SRCRPM
-                    exit
                 fi
             else
                 notificationSend "$HOME/rpmbuild/ftp.conf ist fehlerhaft!"
