@@ -1,25 +1,3 @@
-/===================================================================\
-| changebackground.sh = a script for Xfce < 4.10 to periodicly 
-|                       change the background if an imagelist 
-|                       is set as wallpaper
-| compress.sh         = a script for compressing firefox's and 
-|                       thunderbird's sqlite databases
-| download.sh         = a simple curl wrapper script
-| genmon-yum.sh       = a script for using the Xfce genmon plugin 
-|                       for update notifications
-| listcreate.sh       = a script to easily create imagelists 
-|                       for usage as Xfce wallpaper source
-| mozbackup.sh        = a script for creating backups of firefox
-|                       and thunderbird profiles
-| mp3normalize.sh     = a script to normalize an mp3 collection using
-|                       mp3gain
-| pdf.sh              = a script for opening an pdf file inside
-|                       of a selinx sandbox
-| restart_conky.sh    = restarts conky and forces reloading its config
-| restart_gshekl.sh   = forces the gnome-shell to restart
-| restore_perm.sh     = a script for restoring permissions and
-|                       ownership of the users home dir and subdirs
-| xfceaudio.sh	      = a small script to handle multimedia keys in
-|                       in pragha and parole
-| youtubedl.sh        = a simple wrapper for youtubedl
-\===================================================================/
+# My personal script repository
+
+This repository contains severals script I wrote over the last months/years.
