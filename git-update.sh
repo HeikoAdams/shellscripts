@@ -3,6 +3,7 @@
 PRJDIR="$HOME/Projekte"
 
 cd $PRJDIR
+echo "suche zu aktualisierende git Repositories"
 for REPO in $(find -name .git -type d | sort); do
     cd $PRJDIR
     DIR=$(dirname $REPO)
