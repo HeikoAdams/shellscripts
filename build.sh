@@ -80,7 +80,6 @@ function moveLocal {
     rm -rf $HOME/rpmbuild/RPMS/i686/*$PRJ*.rpm
     rm -rf $HOME/rpmbuild/RPMS/noarch/*$PRJ*.rpm
     rm -rf $HOME/rpmbuild/RPMS/x86_64/*$PRJ*.rpm
-    rm -rf $HOME/rpmbuild/SRPMS/*$PRJ*.rpm
     
     notificationSend "kopiere RPMs nach $HOME/rpmbuild" "Builder"
     for DIR in $(ls /var/lib/mock/); do
@@ -109,7 +108,6 @@ function moveLocal {
 }
 
 function buildProject {
-    PRJ=$1
     AUTO=true
     BINARY=false
 
@@ -202,6 +200,10 @@ function buildProject {
     fi
 
     echo
+    echo "lösche vorhandene RPMs aus $HOME/rpmbuild/SRPMS ..."
+    rm -rf $HOME/rpmbuild/SRPMS/*$PRJ*.rpm
+
+    echo
     echo "Räume Build-Verzeichnisse auf ..."
     rm -rf BUILD/*
     rm -rf BUILDDIR/*
@@ -230,7 +232,7 @@ function buildProject {
     fi
 
     # Pfad zum SRPM generieren
-    SRPM=$(find -samefile SRPMS/$PRJ* -type f)
+    SRPM=$(find . -path "./SRPMS/$PRJ*" -type f)
     SRPM=$(readlink -f $SRPM)
     SRCRPM=$(basename $SRPM)
 
@@ -403,9 +405,11 @@ if [ -z "$1" ]; then
         
         echo "Baue $SFILE"
         echo
+        PRJ="$SFILE"
         buildProject "$SFILE" "$2"
     done
 else
+    PRJ=$1
     buildProject "$1" "$2"
 fi
 
