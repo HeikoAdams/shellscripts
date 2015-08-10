@@ -29,7 +29,11 @@ function prepareBuild {
 }
 
 function notificationSend {
-    $NOTIFY "Fehler" """$1"""
+    if [ -z "$2" ]; then
+        $NOTIFY "Fehler" """$1"""
+    else
+        $NOTIFY """$2""" """$1"""
+    fi
     echo
     echo """$1"""
 }
@@ -72,19 +76,33 @@ function initVars {
 }
 
 function moveLocal {
-    notificationSend "kopiere RPMs nach $HOME/rpmbuild"
+    echo "lösche vorhandene RPMs aus $HOME/rpmbuild ..."
+    rm -rf $HOME/rpmbuild/RPMS/i686/*$PRJ*.rpm
+    rm -rf $HOME/rpmbuild/RPMS/noarch/*$PRJ*.rpm
+    rm -rf $HOME/rpmbuild/RPMS/x86_64/*$PRJ*.rpm
+    rm -rf $HOME/rpmbuild/SRPMS/*$PRJ*.rpm
+    
+    notificationSend "kopiere RPMs nach $HOME/rpmbuild" "Builder"
     for DIR in $(ls /var/lib/mock/); do
-        RESDIR="/var/lib/mock/$DIR/result" 
-        if [ -f $RESDIR/*i686*.rpm ]; then
+        RESDIR="/var/lib/mock/$DIR/result"
+        
+        files=$(ls $RESDIR/*i686*.rpm 2> /dev/null | wc -l)
+        if [ "$files" != "0" ]; then
             mv -f $RESDIR/*i686*.rpm $HOME/rpmbuild/RPMS/i686/
         fi
-        if [ -f $RESDIR/*noarch*.rpm ]; then
+        
+        files=$(ls $RESDIR/*noarch*.rpm 2> /dev/null | wc -l)
+        if [ "$files" != "0" ]; then
             mv -f $RESDIR/*noarch*.rpm $HOME/rpmbuild/RPMS/noarch/
         fi
-        if [ -f $RESDIR/*x86_64*.rpm ]; then
+        
+        files=$(ls $RESDIR/*x86_64*.rpm 2> /dev/null | wc -l)
+        if [ "$files" != "0" ]; then
             mv -f $RESDIR/*x86_64*.rpm $HOME/rpmbuild/RPMS/x86_64/
         fi
-        if [ -f $RESDIR/*src*.rpm ]; then
+        
+        files=$(ls $RESDIR/*src*.rpm 2> /dev/null | wc -l)
+        if [ "$files" != "0" ]; then
             mv -f $RESDIR/*src*.rpm $HOME/rpmbuild/SRPMS/
         fi
     done
@@ -188,12 +206,6 @@ function buildProject {
     rm -rf BUILD/*
     rm -rf BUILDDIR/*
     rm -rf BUILDROOT/*
-
-    echo "lösche vorhandene RPMs ..."
-    rm -rf RPMS/i686/*$PRJ*.rpm
-    rm -rf RPMS/noarch/*$PRJ*.rpm
-    rm -rf RPMS/x86_64/*$PRJ*.rpm
-    rm -rf SRPMS/*$PRJ*.rpm
 
     # Mock aufräumen
     for DIR in $(ls /var/lib/mock/); do
