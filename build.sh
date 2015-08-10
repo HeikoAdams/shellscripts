@@ -71,6 +71,25 @@ function initVars {
     fi
 }
 
+function moveLocal {
+    notificationSend "kopiere RPMs nach $HOME/rpmbuild"
+    for DIR in $(ls /var/lib/mock/); do
+        RESDIR="/var/lib/mock/$DIR/result" 
+        if [ -f $RESDIR/*i686*.rpm ]; then
+            mv -f $RESDIR/*i686*.rpm $HOME/rpmbuild/RPMS/i686/
+        fi
+        if [ -f $RESDIR/*noarch*.rpm ]; then
+            mv -f $RESDIR/*noarch*.rpm $HOME/rpmbuild/RPMS/noarch/
+        fi
+        if [ -f $RESDIR/*x86_64*.rpm ]; then
+            mv -f $RESDIR/*x86_64*.rpm $HOME/rpmbuild/RPMS/x86_64/
+        fi
+        if [ -f $RESDIR/*src*.rpm ]; then
+            mv -f $RESDIR/*src*.rpm $HOME/rpmbuild/SRPMS/
+        fi
+    done
+}
+
 function buildProject {
     PRJ=$1
     AUTO=true
@@ -102,7 +121,7 @@ function buildProject {
         read -p "Sourcen herunterladen? (j/n) " download
     fi
 
-    if [ "$download" == "j" ]; then
+    if [ "${download,,}" == "j" ]; then
         # URL für den Download der Sourcen zusammenbauen
         MATCH="%{name}"
         SOURCE=${SOURCE//$MATCH/$NAME}
@@ -218,7 +237,7 @@ function buildProject {
     fi
 
     # Das Binary bauen und paketieren
-    if [ "$binary" == "j" ]; then
+    if [ "${binary,,}" == "j" ]; then
         echo "Erstelle Binärpaket ..."
         if [ -n "$MOCK" ]; then
             $MOCK rebuild $SRPM --target=$BARCH --dnf
@@ -233,7 +252,7 @@ function buildProject {
         fi
     fi
 
-    if [ "$binary" == "q" ]; then
+    if [ "${binary,,}" == "q" ]; then
         exit
     fi
 
@@ -246,7 +265,7 @@ function buildProject {
 
     # Das fertige SRPM auf den FTP-Server hochladen, damit COPR
     # es verwenden kann
-    if [ "$upload" == "j" ]; then
+    if [ "${upload,,}" == "j" ]; then
         if [ -n "$FTPHOST" ]; then
             echo "lade $SRPM auf FTP-Server hoch ..."
             if [ -n "$CURL" ]; then
@@ -264,8 +283,9 @@ function buildProject {
             notificationSend "FTP-Zugangsdaten sind nicht konfiguriert"
             exit
         fi
-    fi
-    if [ "$upload" == "q" ]; then
+    elif [ "${upload,,}" == "n" ]; then
+        moveLocal
+    elif [ "${upload,,}" == "q" ]; then
         exit
     fi
 
@@ -276,7 +296,7 @@ function buildProject {
         read -p "Paket(e) im COPR bauen? (j/n/) " build
     fi
 
-    if [ "$build" == "n" ]; then
+    if [ "${build,,}" == "n" ]; then
         exit
     fi
     
@@ -290,10 +310,10 @@ function buildProject {
                 read -p "COPR $coprs verwenden? (j/n/q) " use
             fi
 
-            if [ "$use" == "j" ]; then
+            if [ "${use,,}" == "j" ]; then
                 copr=$coprs
                 break
-            elif [ "$use" == "q" ]; then
+            elif [ "${use,,}" == "q" ]; then
                 exit
             fi
         done
@@ -312,9 +332,9 @@ function buildProject {
                         read -p "COPR $coprs verwenden? (j/n/q) " use
                     fi
 
-                    if [ "$use" == "j" ]; then
+                    if [ "${use,,}" == "j" ]; then
                         copr=$coprs
-                    elif [ "$use" == "q" ]; then
+                    elif [ "${use,,}" == "q" ]; then
                         exit
                     fi
                 fi
