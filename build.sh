@@ -30,7 +30,7 @@ function prepareBuild {
 
 function notificationSend {
     if [ -z "$2" ]; then
-        $NOTIFY "Fehler" """$1"""
+        $NOTIFY "Builder" """$1"""
     else
         $NOTIFY """$2""" """$1"""
     fi
@@ -47,15 +47,15 @@ function initVars {
     CURL=$(whereis curl | awk '{print $2}')
     CLI=$(whereis copr-cli | awk '{print $2}')
 
-    ARCH=$(cat SPECS/$PRJ.spec | grep BuildArch: | awk '{print $2}');
-    SOURCE=$(cat SPECS/$PRJ.spec | grep Source: | awk '{print $2}');
-    NAME=$(cat SPECS/$PRJ.spec | grep Name: | head -1 | awk '{print $2}');
-    PRJNAME=$(cat SPECS/$PRJ.spec | grep prjname | head -1 | awk '{print $3}');
-    PKGNAME=$(cat SPECS/$PRJ.spec | grep pkgname | head -1 | awk '{print $3}');
-    BRANCH=$(cat SPECS/$PRJ.spec | grep branch | head -1 | awk '{print $3}');
-    VERSION=$(cat SPECS/$PRJ.spec | grep Version: | head -1 | awk '{print $2}');
-    COMMIT=$(cat SPECS/$PRJ.spec | grep commit | head -1 | awk '{print $3}');
-    BZR_REV=$(cat SPECS/$PRJ.spec | grep bzr_rev | head -1 | awk '{print $3}');
+    ARCH=$(grep BuildArch: SPECS/$PRJ.spec | awk '{print $2}');
+    SOURCE=$(grep Source: SPECS/$PRJ.spec | awk '{print $2}');
+    NAME=$(grep Name: SPECS/$PRJ.spec | head -1 | awk '{print $2}');
+    PRJNAME=$(grep prjname SPECS/$PRJ.spec | head -1 | awk '{print $3}');
+    PKGNAME=$(grep pkgname SPECS/$PRJ.spec | head -1 | awk '{print $3}');
+    BRANCH=$(grep branch SPECS/$PRJ.spec | head -1 | awk '{print $3}');
+    VERSION=$(grep Version: SPECS/$PRJ.spec | head -1 | awk '{print $2}');
+    COMMIT=$(grep commit SPECS/$PRJ.spec | head -1 | awk '{print $3}');
+    BZR_REV=$(grep bzr_rev SPECS/$PRJ.spec | head -1 | awk '{print $3}');
 
     # Wenn im SPEC keine BuildArch angegeben ist, für die eigene Prozessor-
     # Architektur bauen
@@ -66,7 +66,7 @@ function initVars {
     # Falls keine Angabe zum Source-Tag gefunden wurde, im Source0-Tag
     # nachschauen
     if [ -z "$SOURCE" ]; then
-        SOURCE=$(cat SPECS/$PRJ.spec | grep Source0: | awk '{print $2}');
+        SOURCE=$(grep Source0: SPECS/$PRJ.spec | awk '{print $2}');
     fi
 
     # Wenn die Quellen aus Git kommen, auch noch den Git-Hash berechnen
@@ -188,14 +188,14 @@ function buildProject {
     fi
 
     echo
-    echo "lösche vorhandene RPMs aus $HOME/rpmbuild/SRPMS ..."
+    echo "lösche vorhandene SRPMs ..."
     rm -rf $HOME/rpmbuild/SRPMS/*$PRJ*.rpm
 
     echo
     echo "Räume Build-Verzeichnisse auf ..."
-    rm -rf BUILD/*
-    rm -rf BUILDDIR/*
-    rm -rf BUILDROOT/*
+    for DIR in $(ls $HOME/rpmbuild/ | grep BUILD); do
+        rm -rf $DIR/*
+    done
 
     # Mock aufräumen
     for DIR in $(ls /var/lib/mock/); do
@@ -285,11 +285,11 @@ function buildProject {
             notificationSend "FTP-Zugangsdaten sind nicht konfiguriert"
             exit
         fi
-    elif [ "${upload,,}" == "n" ]; then
-        moveLocal
     elif [ "${upload,,}" == "q" ]; then
         exit
     fi
+
+    moveLocal
 
     if [ $AUTO == true ]; then
         build="j"
