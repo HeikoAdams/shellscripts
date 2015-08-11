@@ -22,9 +22,9 @@
 
 function prepareBuild {
     WDIR=$(pwd)
-    
+
     if [ "$WDIR" != "$HOME/rpmbuild" ]; then
-        cd $HOME/rpmbuild 
+        cd $HOME/rpmbuild
     fi
 }
 
@@ -76,34 +76,22 @@ function initVars {
 }
 
 function moveLocal {
-    echo "lösche vorhandene RPMs aus $HOME/rpmbuild ..."
-    rm -rf $HOME/rpmbuild/RPMS/i686/*$PRJ*.rpm
-    rm -rf $HOME/rpmbuild/RPMS/noarch/*$PRJ*.rpm
-    rm -rf $HOME/rpmbuild/RPMS/x86_64/*$PRJ*.rpm
-    
-    notificationSend "kopiere RPMs nach $HOME/rpmbuild" "Builder"
     for DIR in $(ls /var/lib/mock/); do
         RESDIR="/var/lib/mock/$DIR/result"
-        
-        files=$(ls $RESDIR/*i686*.rpm 2> /dev/null | wc -l)
-        if [ "$files" != "0" ]; then
-            mv -f $RESDIR/*i686*.rpm $HOME/rpmbuild/RPMS/i686/
-        fi
-        
-        files=$(ls $RESDIR/*noarch*.rpm 2> /dev/null | wc -l)
-        if [ "$files" != "0" ]; then
-            mv -f $RESDIR/*noarch*.rpm $HOME/rpmbuild/RPMS/noarch/
-        fi
-        
-        files=$(ls $RESDIR/*x86_64*.rpm 2> /dev/null | wc -l)
-        if [ "$files" != "0" ]; then
-            mv -f $RESDIR/*x86_64*.rpm $HOME/rpmbuild/RPMS/x86_64/
-        fi
-        
-        files=$(ls $RESDIR/*src*.rpm 2> /dev/null | wc -l)
-        if [ "$files" != "0" ]; then
-            mv -f $RESDIR/*src*.rpm $HOME/rpmbuild/SRPMS/
-        fi
+
+        for arch in $(ls $HOME/rpmbuild/RPMS/); do
+            files=$(ls $RESDIR/*$arch*.rpm 2> /dev/null | wc -l)
+
+            if [ "$files" != "0" ]; then
+                echo
+                echo "lösche vorhandene RPMs aus $HOME/rpmbuild/RPMS/$arch/"
+                rm -rf $HOME/rpmbuild/RPMS/$arch/*$PRJ*.rpm
+
+                echo
+                echo "kopiere RPMs nach $HOME/rpmbuild/RPMS/$arch/"
+                mv -f $RESDIR/*$arch*.rpm $HOME/rpmbuild/RPMS/$arch/
+            fi
+        done
     done
 }
 
@@ -313,7 +301,7 @@ function buildProject {
     if [ "${build,,}" == "n" ]; then
         exit
     fi
-    
+
     # COPR, übernehmen Sie
     if [ -n "$CLI" ]; then
         echo "Suche nach passendem COPR ..."
@@ -336,7 +324,7 @@ function buildProject {
         if [ -z "$copr" ]; then
             if [ -e "$HOME/rpmbuild/coprs.conf" ]; then
                 echo "Suche in coprs.conf nach passendem COPR ..."
-                coprs=$(cat $HOME/rpmbuild/coprs.conf | grep $PRJ)
+                coprs=$(grep $PRJ $HOME/rpmbuild/coprs.conf)
                 coprs=${coprs#*=}
 
                 if [ -n "$coprs" ]; then
@@ -366,7 +354,7 @@ function buildProject {
                 # Nachschauen, ob ein Projekt nur für bestimmte
                 # chroots gebaut werden soll
                 if [ -e "$HOME/rpmbuild/chroots.conf" ]; then
-                    CHROOTS=$(cat $HOME/rpmbuild/chroots.conf | grep $copr)
+                    CHROOTS=$(grep $copr $HOME/rpmbuild/chroots.conf)
                     CHROOTS=${CHROOTS#*=}
                 fi
 
@@ -402,7 +390,7 @@ prepareBuild
 if [ -z "$1" ]; then
     for spec in $(find -name *.spec -mmin -15); do
         SFILE=$(basename $spec .spec)
-        
+
         echo "Baue $SFILE"
         echo
         PRJ="$SFILE"
