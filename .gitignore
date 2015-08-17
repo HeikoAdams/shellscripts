@@ -2,3 +2,5 @@ boxmount.sh
 sync_orage.sh
 touchpad.sh
 yumnotifier.sh
+genmon-yum.sh
+changebackground.sh
