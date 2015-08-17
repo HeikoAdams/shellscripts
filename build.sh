@@ -99,6 +99,11 @@ function buildProject {
     AUTO=true
     BINARY=false
 
+    if [ -e !SPECS/$PRJ.spec ]; then
+        notificationSend "Die angegebene Spec-Datei existiert nicht!"
+        exit
+    fi
+
     if [ -n "$2" ]; then
         if [ "$2" == "noauto" ]; then
             AUTO=false
