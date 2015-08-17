@@ -22,6 +22,11 @@ touch $LOGFILE;
 
 # process directories array
 for DIR in ${MP3DIR[*]}; do
+    # make sure the directory exists
+    if [ ! -d "$DIR" ]; then
+        continue
+    fi
+
 	echo $DIR;
 	
 	# create filelist for current directory
