@@ -138,7 +138,7 @@ function downloadSources {
 
         if [ -n "$BRANCH" ]; then
             MATCH="%{branch}"
-            SOURCE=${URL//$MATCH/$BRANCH}
+            URL=${URL//$MATCH/$BRANCH}
         fi
 
         if [ -n "$COMMIT" ]; then
