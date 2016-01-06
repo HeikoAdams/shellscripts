@@ -459,10 +459,10 @@ function cmdline {
     done
 
     #Reset the positional parameters to the short options
-    eval set -- $PARAM
+    eval set -- "$PARAM"
 
-    while getopts "s:o" OPTION; do
-         case $OPTION in
+    while getopts "s:o:" opt; do
+         case $opt in
          s)
              readonly PARAMFILE=$OPTARG
              ;;
