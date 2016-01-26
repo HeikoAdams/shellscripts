@@ -31,7 +31,7 @@ function prepareBuild {
 function notificationSend {
     local MSG=$1
     local TITLE=$2
-    
+
     if [ -z "$TITLE" ]; then
         $NOTIFY "Builder" """$MSG"""
     else
@@ -70,7 +70,7 @@ function initVars {
     # nachschauen
     if [ -z "$SRC" ]; then
         readonly SOURCE=$(grep Source0: SPECS/$PRJ.spec | awk '{print $2}');
-    else    
+    else
         readonly SOURCE=$SRC
     fi
 
@@ -85,7 +85,7 @@ function moveLocal {
     local RESDIR
     local ARCHDIR
     local FILES
-    
+
     for DIR in $(ls /var/lib/mock/); do
         RESDIR="/var/lib/mock/$DIR/result"
 
@@ -111,7 +111,7 @@ function downloadSources {
     local DOWNLOAD
     local MATCH
     local URL
-    
+
     if [ $AUTO == true ]; then
         DOWNLOAD="j"
     else
@@ -311,6 +311,8 @@ function buildCOPR {
     local BUILDCOPR
     local COPRS
     local USE
+    local CHROOT
+    local CHROOTS
 
     if [ $AUTO == true ]; then
         BUILDCOPR="j"
@@ -373,11 +375,14 @@ function buildCOPR {
         # COPR-Build veranlassen
         if [ -n "$COPR" ]; then
             if [ -n "$HTTPHOST" ]; then
-                # Nachschauen, ob ein Projekt nur für bestimmte
+                # Nachschauen, ob ein Projekt/COPR nur für bestimmte
                 # chroots gebaut werden soll
                 if [ -e "$HOME/rpmbuild/chroots.conf" ]; then
-                    CHROOTS=$(grep $COPR $HOME/rpmbuild/chroots.conf)
-                    CHROOTS=${CHROOTS#*=}
+                    CHROOT=$(grep $PRJ $HOME/rpmbuild/chroots.conf)
+                    if [ -z "$CHROOT" ]; then
+                        CHROOT=$(grep $COPR $HOME/rpmbuild/chroots.conf)
+                    fi
+                    CHROOTS=${CHROOT#*=}
                 fi
 
                 # Paket(e) bauen
@@ -431,8 +436,8 @@ function buildProject {
     initVars
     downloadSources $PRJ $AUTO
     buildRPM $PRJ $BINARY
-    uploadSources $AUTO
     moveLocal
+    uploadSources $AUTO
     buildCOPR $PRJ $AUTO
 }
 
@@ -474,6 +479,10 @@ function cmdline {
 
     [[ -z $PARAMFILE ]] \
         && echo "You must provide --spec file" && exit
+
+    if [ -z $PARAMOPT ]; then
+        readonly PARAMOPT="binary"
+    fi
 
     return 0
 }
