@@ -97,7 +97,6 @@ function moveLocal {
                 echo "lösche vorhandene RPMs aus $HOME/rpmbuild/RPMS/$ARCHDIR/"
                 rm -rf $HOME/rpmbuild/RPMS/$ARCHDIR/*$PRJ*.rpm
 
-                echo
                 echo "kopiere RPMs nach $HOME/rpmbuild/RPMS/$ARCHDIR/"
                 mv -f $RESDIR/*$ARCHDIR*.rpm $HOME/rpmbuild/RPMS/$ARCHDIR/
             fi
@@ -193,7 +192,6 @@ function buildRPM {
     echo "lösche vorhandene SRPMs ..."
     rm -rf $HOME/rpmbuild/SRPMS/*$PRJ*.rpm
 
-    echo
     echo "Räume Build-Verzeichnisse auf ..."
     for DIR in $(ls $HOME/rpmbuild/ | grep BUILD); do
         rm -rf $DIR/*
@@ -231,12 +229,12 @@ function buildRPM {
         exit
     fi
 
+    echo
     if [ $BINARY == true ]; then
         BUILD="j"
     elif [ $AUTO == true ]; then
         BUILD="n"
     else
-        echo
         read -p "Binärpakete erstellen? (j/n/q) " BUILD
     fi
 
