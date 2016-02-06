@@ -493,6 +493,14 @@ function main {
 
 readonly ARGS="$@"
 
-main
+LOCKFILE=/var/lock/build.lock
+[[ -f $LOCKFILE ]] && exit 1
+> $LOCKFILE
+trap -- "rm $LOCKFILE" EXIT
 
+main
 cd ..
+
+rm $LOCKFILE
+trap -- EXIT
+exit 0
