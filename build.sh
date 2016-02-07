@@ -262,6 +262,7 @@ function buildRPM {
 function uploadSources {
     local AUTO="$1"
     local UPLOAD
+    local FTPPARM=""
 
     # FTP-Zugangsdaten auslesen sowie URL des SRPM auslesen
     if [ -e "$HOME/rpmbuild/ftp.conf" ]; then
@@ -284,7 +285,7 @@ function uploadSources {
         if [ -n "$FTPHOST" ]; then
             echo "lade $SRPM auf FTP-Server hoch ..."
             if [ -n "$CURL" ]; then
-                $CURL -T $SRPM -u "$FTPUSER:$FTPPWD" ftp://$FTPHOST/$FTPPATH
+                $CURL --ftp-ssl -# -k -T $SRPM -u "$FTPUSER:$FTPPWD" ftp://$FTPHOST/$FTPPATH
                 RC=$?
                 if [ $RC != 0 ]; then
                     notificationSend "Upload fehlgeschlagen! (Fehlercode $RC)"
@@ -493,7 +494,7 @@ function main {
 
 readonly ARGS="$@"
 
-LOCKFILE=/var/lock/build.lock
+readonly LOCKFILE=/home/heiko/build.lock
 [[ -f $LOCKFILE ]] && exit 1
 > $LOCKFILE
 trap -- "rm $LOCKFILE" EXIT
