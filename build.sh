@@ -495,7 +495,11 @@ function main {
 readonly ARGS="$@"
 
 readonly LOCKFILE=/home/heiko/build.lock
-[[ -f $LOCKFILE ]] && exit 1
+
+if [ -f $LOCKFILE ]; then
+    echo "Das Build-Script wird bereits ausgeführt"
+    exit 1
+fi
 > $LOCKFILE
 trap -- "rm $LOCKFILE" EXIT
 
