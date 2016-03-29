@@ -67,7 +67,8 @@ function notificationSend {
 
 function initVars {
     # benötigte Variable befüllen
-    readonly RPMBUILD=$(whereis rpmbuild | awk '{print $2}')
+
+    # benötigte Programme suchen
     readonly RPMLINT=$(whereis rpmlint | awk '{print $2}')
     readonly NOTIFY=$(whereis notify-send | awk '{print $2}')
     readonly WGET=$(whereis wget | awk '{print $2}')
@@ -75,6 +76,7 @@ function initVars {
     readonly CURL=$(whereis curl | awk '{print $2}')
     readonly CLI=$(whereis copr-cli | awk '{print $2}')
 
+    # Paketspezifische Variablen füllen
     readonly ARCH=$(grep BuildArch: SPECS/$PRJ.spec | awk '{print $2}');
     readonly SRC=$(grep Source: SPECS/$PRJ.spec | awk '{print $2}');
     readonly NAME=$(grep Name: SPECS/$PRJ.spec | head -1 | awk '{print $2}');
@@ -84,6 +86,11 @@ function initVars {
     readonly VERSION=$(grep Version: SPECS/$PRJ.spec | head -1 | awk '{print $2}');
     readonly COMMIT=$(grep commit SPECS/$PRJ.spec | head -1 | awk '{print $3}');
     readonly BZR_REV=$(grep bzr_rev SPECS/$PRJ.spec | head -1 | awk '{print $3}');
+
+    # verwendete Fedora-Version und CPU-Architektur ermitteln
+    local RELEASE=$(cat /etc/os-release | grep VERSION_ID)
+    readonly FEDORA=${RELEASE#*=}
+    readonly CPUARCH=$(uname -m)
 
     # Wenn im SPEC keine BuildArch angegeben ist, für die eigene Prozessor-
     # Architektur bauen
@@ -106,38 +113,36 @@ function initVars {
 }
 
 function moveLocal {
-    local DIR
     local RESDIR
     local ARCHDIR
     local FILES
+    local FEDORADIR='fedora-'''$FEDORA'''-'''$CPUARCH
 
-    for DIR in $(ls /var/lib/mock/); do
-        RESDIR="/var/lib/mock/$DIR/result"
+    RESDIR="/var/lib/mock/$FEDORADIR/result"
 
-        for ARCHDIR in $(ls $HOME/rpmbuild/RPMS/); do
-            FILES=$(ls $RESDIR/*$ARCHDIR*.rpm 2> /dev/null | wc -l)
+    for ARCHDIR in $(ls $HOME/rpmbuild/RPMS/); do
+        FILES=$(ls $RESDIR/*$ARCHDIR*.rpm 2> /dev/null | wc -l)
 
-            if [ "$FILES" != "0" ]; then
-                echo
-                echo "lösche vorhandene RPMs aus $HOME/rpmbuild/RPMS/$ARCHDIR/"
-                rm -rf $HOME/rpmbuild/RPMS/$ARCHDIR/*$PRJ*.rpm
+        if [ "$FILES" != "0" ]; then
+            echo
+            echo "lösche vorhandene RPMs aus $HOME/rpmbuild/RPMS/$ARCHDIR/"
+            rm -rf $HOME/rpmbuild/RPMS/$ARCHDIR/*$PRJ*.rpm
 
-                echo "kopiere RPMs nach $HOME/rpmbuild/RPMS/$ARCHDIR/"
-                mv -f $RESDIR/*$ARCHDIR*.rpm $HOME/rpmbuild/RPMS/$ARCHDIR/
+            echo "kopiere RPMs nach $HOME/rpmbuild/RPMS/$ARCHDIR/"
+            mv -f $RESDIR/*$ARCHDIR*.rpm $HOME/rpmbuild/RPMS/$ARCHDIR/
 
-                if [ -n "$RPMLINT" ]; then
-                    local RPMFILE=$(find . -path "./RPMS/$ARCHDIR/$NAME-$VERSION*" -type f)
-                    local RPM=$(readlink -f $RPMFILE)
+            if [ -n "$RPMLINT" ]; then
+                local RPMFILE=$(find . -path "./RPMS/$ARCHDIR/$NAME-$VERSION*" -type f)
+                local RPM=$(readlink -f $RPMFILE)
 
-                    if [ -e "$RPM" ]; then
-                        echo "Prüfe $RPMFILE mit rpmlint"
-                        $RPMLINT $SRPM $RPMFILE
-                    else
-                        echo "rpmlint ist nicht installiert"
-                    fi
+                if [ -e "$RPM" ]; then
+                    echo "Prüfe $RPMFILE mit rpmlint"
+                    $RPMLINT $SRPM $RPMFILE
+                else
+                    echo "rpmlint ist nicht installiert"
                 fi
             fi
-        done
+        fi
     done
 }
 
@@ -201,9 +206,9 @@ function downloadSources {
             rm -f SOURCES/*$PRJ*.gz
             rm -f SOURCES/*$PRJ*.xz
             rm -f SOURCES/*$PRJ*.bz2
-            echo "Lade Source-Archiv $URL herunter ..."
 
             if [ -n "$WGET" ]; then
+                echo "Lade Source-Archiv $URL herunter ..."
                 $WGET $URL -q -O SOURCES/$DEST
                 RC=$?
                 if [ $RC != 0 ]; then
@@ -221,38 +226,43 @@ function downloadSources {
 function buildRPM {
     local PRJ="$1"
     local BINARY="$2"
-    local BUILD
     local DIR
+    local BUILD
     local RESDIR
+    local FEDORADIR='fedora-'''$FEDORA'''-'''$CPUARCH
 
     echo
     echo "lösche vorhandene SRPMs ..."
     rm -rf $HOME/rpmbuild/SRPMS/*$PRJ*.rpm
+
+    echo "lösche alte Logs ..."
+    rm -rf $HOME/rpmbuild/SRPMS/*.log
 
     echo "Räume Build-Verzeichnisse auf ..."
     for DIR in $(ls $HOME/rpmbuild/ | grep BUILD); do
         rm -rf $DIR/*
     done
 
-    # Mock aufräumen
-    for DIR in $(ls /var/lib/mock/); do
-        RESDIR="/var/lib/mock/$DIR/result"
-        rm -rf $RESDIR/*$PRJ*.rpm
-    done
+    echo "Räume Mock-Result-Verzeichnisse auf ..."
+    RESDIR="/var/lib/mock/$FEDORADIR/result"
+    rm -rf $RESDIR/*$PRJ*.rpm
 
     echo
     echo -e "Erstelle ${1} Source-Paket"
 
     # SRPM erstellen
-    if [ -n "$RPMBUILD" ]; then
-        $RPMBUILD -bs SPECS/$PRJ.spec
+    if [ -n "$MOCK" ]; then
+        $MOCK --dnf --buildsrpm\
+          --spec=$HOME/rpmbuild/SPECS/$PRJ.spec\
+          --sources=$HOME/rpmbuild/SOURCES\
+          --resultdir=$HOME/rpmbuild/SRPMS
         RC=$?
         if [ $RC != 0 ]; then
             notificationSend "SRPM-Build fehlgeschlagen! (Fehlercode $RC)"
             exit
         fi
     else
-        notificationSend "rpmbuild ist nicht installiert!"
+        notificationSend "mock ist nicht installiert!"
         exit
     fi
 
@@ -390,7 +400,7 @@ function buildCOPR {
                     if [ $AUTO == true ]; then
                         USE="j"
                     else
-                        read -p "COPR $COPRS verwenden? (j/n/q) " use
+                        read -p "COPR $COPRS verwenden? (j/n/q) " USE
                     fi
 
                     if [ "${USE,,}" == "j" ]; then
