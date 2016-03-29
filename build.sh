@@ -20,6 +20,29 @@
 #  MA 02111-1307, USA.
 #
 
+function initConfig {
+    if [ ! -d "$HOME/.config/minibuild/" ]; then
+        mkdir -p $HOME/.config/minibuild/
+        notificationSend "Konfigurationsverzeichnis erstellt! Bitte überprüfen Sie die minibuild-Konfiguration!"
+        exit -1
+    else
+        if [ ! -e "$HOME/.config/minibuild/chroots.conf" ]; then
+            touch $HOME/.config/minibuild/chroots.conf
+            notificationSend "Konfigurationsdatei chroots.conf erstellt!"
+        fi
+
+        if [ ! -e "$HOME/.config/minibuild/coprs.conf" ]; then
+            touch $HOME/.config/minibuild/coprs.conf
+            notificationSend "Konfigurationsdatei coprs.conf erstellt!"
+        fi
+
+        if [ ! -e "$HOME/.config/minibuild/ftp.conf" ]; then
+            touch $HOME/.config/minibuild/ftp.conf
+            notificationSend "Konfigurationsdatei ftp.conf erstellt!"
+        fi
+    fi
+}
+
 function prepareBuild {
     local WDIR=$(pwd)
 
@@ -33,10 +56,11 @@ function notificationSend {
     local TITLE=$2
 
     if [ -z "$TITLE" ]; then
-        $NOTIFY "Builder" """$MSG"""
-    else
-        $NOTIFY """$TITLE""" """$MSG"""
+        TITLE="MiniBuild"
     fi
+
+    $NOTIFY """$TITLE""" """$MSG"""
+
     echo
     echo """$MSG"""
 }
@@ -44,6 +68,7 @@ function notificationSend {
 function initVars {
     # benötigte Variable befüllen
     readonly RPMBUILD=$(whereis rpmbuild | awk '{print $2}')
+    readonly RPMLINT=$(whereis rpmlint | awk '{print $2}')
     readonly NOTIFY=$(whereis notify-send | awk '{print $2}')
     readonly WGET=$(whereis wget | awk '{print $2}')
     readonly MOCK=$(whereis mock | awk '{print $2}')
@@ -99,6 +124,18 @@ function moveLocal {
 
                 echo "kopiere RPMs nach $HOME/rpmbuild/RPMS/$ARCHDIR/"
                 mv -f $RESDIR/*$ARCHDIR*.rpm $HOME/rpmbuild/RPMS/$ARCHDIR/
+
+                if [ -n "$RPMLINT" ]; then
+                    local RPMFILE=$(find . -path "./RPMS/$ARCHDIR/$NAME-$VERSION*" -type f)
+                    local RPM=$(readlink -f $RPMFILE)
+
+                    if [ -e "$RPM" ]; then
+                        echo "Prüfe $RPMFILE mit rpmlint"
+                        $RPMLINT $SRPM $RPMFILE
+                    else
+                        echo "rpmlint ist nicht installiert"
+                    fi
+                fi
             fi
         done
     done
@@ -265,10 +302,10 @@ function uploadSources {
     local FTPPARM=""
 
     # FTP-Zugangsdaten auslesen sowie URL des SRPM auslesen
-    if [ -e "$HOME/rpmbuild/ftp.conf" ]; then
-        source $HOME/rpmbuild/ftp.conf
+    if [ -s "$HOME/.config/minibuild/ftp.conf" ]; then
+        source $HOME/.config/minibuild/ftp.conf
     else
-        notificationSend "$HOME/rpmbuild/ftp.conf existiert nicht!"
+        notificationSend "FTP-Zugangsdaten sind nicht konfiguriert"
         exit
     fi
 
@@ -344,9 +381,9 @@ function buildCOPR {
 
         # Kein passendes COPR gefunden -> in coprs.conf nachschauen
         if [ -z "$COPR" ]; then
-            if [ -e "$HOME/rpmbuild/coprs.conf" ]; then
+            if [ -s "$HOME/.config/minibuild/coprs.conf" ]; then
                 echo "Suche in coprs.conf nach passendem COPR ..."
-                COPRS=$(grep $PRJ $HOME/rpmbuild/coprs.conf)
+                COPRS=$(grep $PRJ $HOME/.config/minibuild/coprs.conf)
                 COPRS=${COPRS#*=}
 
                 if [ -n "$COPRS" ]; then
@@ -376,10 +413,10 @@ function buildCOPR {
             if [ -n "$HTTPHOST" ]; then
                 # Nachschauen, ob ein Projekt/COPR nur für bestimmte
                 # chroots gebaut werden soll
-                if [ -e "$HOME/rpmbuild/chroots.conf" ]; then
-                    CHROOT=$(grep $PRJ $HOME/rpmbuild/chroots.conf)
+                if [ -s "$HOME/.config/minibuild/chroots.conf" ]; then
+                    CHROOT=$(grep $PRJ $HOME/.config/minibuild/chroots.conf)
                     if [ -z "$CHROOT" ]; then
-                        CHROOT=$(grep $COPR $HOME/rpmbuild/chroots.conf)
+                        CHROOT=$(grep $COPR $HOME/.config/minibuild/chroots.conf)
                     fi
                     CHROOTS=${CHROOT#*=}
                 fi
@@ -401,7 +438,7 @@ function buildCOPR {
                     $CLI build "$COPR" $CMDLINE http://$HTTPHOST/$HTTPPATH/$SRCRPM
                 fi
             else
-                notificationSend "$HOME/rpmbuild/ftp.conf ist fehlerhaft!"
+                notificationSend "$HOME/.config/minibuild/chroots.conf ist fehlerhaft!"
                 exit
             fi
         fi
@@ -433,6 +470,7 @@ function buildProject {
     fi
 
     initVars
+    initConfig
     downloadSources $PRJ $AUTO
     buildRPM $PRJ $BINARY
     moveLocal
