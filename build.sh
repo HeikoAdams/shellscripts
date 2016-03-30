@@ -111,7 +111,7 @@ function moveLocal {
     local ARCHDIR
     local FILES
 
-    rm -f $HOME/rpmbuild/SRPMS/*$PRJ*.src.rpm
+    rm -f $HOME/rpmbuild/RPMS/*$PRJ*.src.rpm
 
     for ARCHDIR in $(ls $HOME/rpmbuild/RPMS/); do
         FILES=$(ls $HOME/rpmbuild/RPMS/*$ARCHDIR*.rpm 2> /dev/null | wc -l)
