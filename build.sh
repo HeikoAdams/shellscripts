@@ -87,11 +87,6 @@ function initVars {
     readonly COMMIT=$(grep commit SPECS/$PRJ.spec | head -1 | awk '{print $3}');
     readonly BZR_REV=$(grep bzr_rev SPECS/$PRJ.spec | head -1 | awk '{print $3}');
 
-    # verwendete Fedora-Version und CPU-Architektur ermitteln
-    local RELEASE=$(cat /etc/os-release | grep VERSION_ID)
-    readonly FEDORA=${RELEASE#*=}
-    readonly CPUARCH=$(uname -m)
-
     # Wenn im SPEC keine BuildArch angegeben ist, für die eigene Prozessor-
     # Architektur bauen
     if [ -z "$ARCH" ]; then
@@ -113,15 +108,13 @@ function initVars {
 }
 
 function moveLocal {
-    local RESDIR
     local ARCHDIR
     local FILES
-    local FEDORADIR='fedora-'''$FEDORA'''-'''$CPUARCH
 
-    RESDIR="/var/lib/mock/$FEDORADIR/result"
+    rm -f $HOME/rpmbuild/SRPMS/*$PRJ*.src.rpm
 
     for ARCHDIR in $(ls $HOME/rpmbuild/RPMS/); do
-        FILES=$(ls $RESDIR/*$ARCHDIR*.rpm 2> /dev/null | wc -l)
+        FILES=$(ls $HOME/rpmbuild/RPMS/*$ARCHDIR*.rpm 2> /dev/null | wc -l)
 
         if [ "$FILES" != "0" ]; then
             echo
@@ -129,7 +122,7 @@ function moveLocal {
             rm -rf $HOME/rpmbuild/RPMS/$ARCHDIR/*$PRJ*.rpm
 
             echo "kopiere RPMs nach $HOME/rpmbuild/RPMS/$ARCHDIR/"
-            mv -f $RESDIR/*$ARCHDIR*.rpm $HOME/rpmbuild/RPMS/$ARCHDIR/
+            mv -f $HOME/rpmbuild/RPMS/*$ARCHDIR*.rpm $HOME/rpmbuild/RPMS/$ARCHDIR/
 
             if [ -n "$RPMLINT" ]; then
                 local RPMFILE=$(find . -path "./RPMS/$ARCHDIR/$NAME-$VERSION*" -type f)
@@ -243,10 +236,6 @@ function buildRPM {
         rm -rf $DIR/*
     done
 
-    echo "Räume Mock-Result-Verzeichnisse auf ..."
-    RESDIR="/var/lib/mock/$FEDORADIR/result"
-    rm -rf $RESDIR/*$PRJ*.rpm
-
     echo
     echo -e "Erstelle ${1} Source-Paket"
 
@@ -289,7 +278,8 @@ function buildRPM {
     if [ "${BUILD,,}" == "j" ]; then
         echo "Erstelle Binärpaket ..."
         if [ -n "$MOCK" ]; then
-            $MOCK rebuild $SRPM --target=$BARCH --dnf
+            $MOCK rebuild $SRPM --target=$BARCH --dnf\
+                --resultdir=$HOME/rpmbuild/RPMS
             RC=$?
             if [ $RC != 0 ]; then
                 notificationSend "Build fehlgeschlagen! (Fehlercode $RC)"
