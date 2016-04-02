@@ -29,16 +29,19 @@ function initConfig {
         if [ ! -e "$HOME/.config/minibuild/chroots.conf" ]; then
             touch $HOME/.config/minibuild/chroots.conf
             notificationSend "Konfigurationsdatei chroots.conf erstellt!"
+            exit -1
         fi
 
         if [ ! -e "$HOME/.config/minibuild/coprs.conf" ]; then
             touch $HOME/.config/minibuild/coprs.conf
             notificationSend "Konfigurationsdatei coprs.conf erstellt!"
+            exit -1
         fi
 
         if [ ! -e "$HOME/.config/minibuild/ftp.conf" ]; then
             touch $HOME/.config/minibuild/ftp.conf
             notificationSend "Konfigurationsdatei ftp.conf erstellt!"
+            exit -1
         fi
     fi
 }
@@ -111,7 +114,7 @@ function moveLocal {
     local ARCHDIR
     local FILES
 
-    rm -f $HOME/rpmbuild/RPMS/*$PRJ*.src.rpm
+    rm -rf $HOME/rpmbuild/RPMS/*$PRJ*.src.rpm
 
     for ARCHDIR in $(ls $HOME/rpmbuild/RPMS/); do
         FILES=$(ls $HOME/rpmbuild/RPMS/*$ARCHDIR*.rpm 2> /dev/null | wc -l)
@@ -126,14 +129,19 @@ function moveLocal {
 
             if [ -n "$RPMLINT" ]; then
                 local RPMFILE=$(find . -path "./RPMS/$ARCHDIR/$NAME-$VERSION*" -type f)
-                local RPM=$(readlink -f $RPMFILE)
-
-                if [ -e "$RPM" ]; then
-                    echo "Prüfe $RPMFILE mit rpmlint"
-                    $RPMLINT $SRPM $RPMFILE
-                else
-                    echo "rpmlint ist nicht installiert"
+                if [ ${#RPMFILE[@]} == 0 ]; then
+                    local RPM=$(readlink -f $RPMFILE)
                 fi
+                local SPEC=$(readlink -f ./SPECS/$PRJ.spec)
+
+                echo "Prüfe $PRJ Pakete mit rpmlint"
+                if [ -n "$RPM" ]; then
+                    $RPMLINT $SRPM $RPMFILE $SPEC
+                else
+                    $RPMLINT $SRPM $SPEC
+                fi
+            else
+                echo "rpmlint ist nicht installiert"
             fi
         fi
     done
@@ -202,7 +210,7 @@ function downloadSources {
 
             if [ -n "$WGET" ]; then
                 echo "Lade Source-Archiv $URL herunter ..."
-                $WGET $URL -q -O SOURCES/$DEST
+                $WGET $URL --show-progress -q -O SOURCES/$DEST
                 RC=$?
                 if [ $RC != 0 ]; then
                     notificationSend "Download fehlgeschlagen! (Fehlercode $RC)"
@@ -221,8 +229,6 @@ function buildRPM {
     local BINARY="$2"
     local DIR
     local BUILD
-    local RESDIR
-    local FEDORADIR='fedora-'''$FEDORA'''-'''$CPUARCH
 
     echo
     echo "lösche vorhandene SRPMs ..."
