@@ -113,6 +113,7 @@ function initVars {
 function moveLocal {
     local ARCHDIR
     local FILES
+    local RPMFILE
 
     rm -rf $HOME/rpmbuild/RPMS/*$PRJ*.src.rpm
 
@@ -128,14 +129,12 @@ function moveLocal {
             mv -f $HOME/rpmbuild/RPMS/*$ARCHDIR*.rpm $HOME/rpmbuild/RPMS/$ARCHDIR/
 
             if [ -n "$RPMLINT" ]; then
-                local RPMFILE=$(find . -path "./RPMS/$ARCHDIR/$NAME-$VERSION*" -type f)
-                if [ ${#RPMFILE[@]} == 0 ]; then
-                    local RPM=$(readlink -f $RPMFILE)
-                fi
+                local RPMFILE=$(find . -path "./RPMS/$ARCHDIR/$NAME-$VERSION*.rpm" -type f)
+                local COUNTER=$(find . -path "./RPMS/$ARCHDIR/$NAME-$VERSION*.rpm" -type f | wc -l)
                 local SPEC=$(readlink -f ./SPECS/$PRJ.spec)
 
                 echo "Prüfe $PRJ Pakete mit rpmlint"
-                if [ -n "$RPM" ]; then
+                if [ $COUNTER == 1 ]; then
                     $RPMLINT $SRPM $RPMFILE $SPEC
                 else
                     $RPMLINT $SRPM $SPEC
