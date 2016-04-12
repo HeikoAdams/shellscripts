@@ -115,6 +115,7 @@ function moveLocal {
     local FILES
     local RPMFILE
 
+    # Das src.rpm wird nicht benötigt und deshalb gelöscht
     rm -rf $HOME/rpmbuild/RPMS/*$PRJ*.src.rpm
 
     for ARCHDIR in $(ls $HOME/rpmbuild/RPMS/); do
@@ -234,7 +235,7 @@ function buildRPM {
     rm -rf $HOME/rpmbuild/SRPMS/*$PRJ*.rpm
 
     echo "lösche alte Logs ..."
-    rm -rf $HOME/rpmbuild/SRPMS/*.log
+    find . -name *log -type f -exec rm -f '{}' \;
 
     echo "Räume Build-Verzeichnisse auf ..."
     for DIR in $(ls $HOME/rpmbuild/ | grep BUILD); do
@@ -535,8 +536,9 @@ function main {
     buildProject "$PARAMFILE" "$PARAMOPT"
 }
 
+readonly PROGNAME=$(basename $0)
+readonly PROGDIR=$(readlink -m $(dirname $0))
 readonly ARGS="$@"
-
 readonly LOCKFILE=/home/heiko/build.lock
 
 if [ -f $LOCKFILE ]; then
