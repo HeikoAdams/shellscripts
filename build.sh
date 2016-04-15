@@ -94,6 +94,8 @@ function initVars {
     # Architektur bauen
     if [ -z "$ARCH" ]; then
         readonly BARCH=$(uname -m)
+    else
+        readonly BARCH=$ARCH
     fi
 
     # Falls keine Angabe zum Source-Tag gefunden wurde, im Source0-Tag
@@ -315,10 +317,10 @@ function uploadSources {
         exit
     fi
 
+    echo
     if [ $AUTO == true ]; then
         UPLOAD="j"
     else
-        echo
         read -p "Upload des Source-Paketes? (j/n/q) " UPLOAD
     fi
 
@@ -326,6 +328,7 @@ function uploadSources {
     # es verwenden kann
     if [ "${UPLOAD,,}" == "j" ]; then
         if [ -n "$FTPHOST" ]; then
+
             echo "lade $SRPM auf FTP-Server hoch ..."
             if [ -n "$CURL" ]; then
                 $CURL --ftp-ssl -# -k -T $SRPM -u "$FTPUSER:$FTPPWD" ftp://$FTPHOST/$FTPPATH
