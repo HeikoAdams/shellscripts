@@ -78,6 +78,7 @@ function initVars {
     readonly MOCK=$(whereis mock | awk '{print $2}')
     readonly CURL=$(whereis curl | awk '{print $2}')
     readonly CLI=$(whereis copr-cli | awk '{print $2}')
+    readonly LFTP=$(whereis lftp | awk '{print $2}')
 
     # Paketspezifische Variablen füllen
     readonly ARCH=$(grep BuildArch: SPECS/$PRJ.spec | awk '{print $2}');
@@ -330,7 +331,20 @@ function uploadSources {
         if [ -n "$FTPHOST" ]; then
 
             echo "lade $SRPM auf FTP-Server hoch ..."
-            if [ -n "$CURL" ]; then
+            if [ -n "$LFTP" ]; then
+                local FTPURL="ftp://$FTPUSER:$FTPPWD@$FTPHOST"
+                local LCD="~/rpmbuild/SRPMS"
+                local DELETE="--delete"
+                local NOVERFIY="set ssl:verify-certificate no;"
+                $LFTP -c "set ftp:list-options -a; $NOVERFIY
+                open '$FTPURL';
+                lcd $LCD;
+                cd $FTPPATH;
+                mirror --reverse \
+                       $DELETE \
+                       --verbose \
+                       --exclude-glob *.log"
+            elif [ -n "$CURL" ]; then
                 $CURL --ftp-ssl -# -k -T $SRPM -u "$FTPUSER:$FTPPWD" ftp://$FTPHOST/$FTPPATH
                 RC=$?
                 if [ $RC != 0 ]; then
@@ -338,7 +352,7 @@ function uploadSources {
                     exit
                 fi
             else
-                notificationSend "curl ist nicht installiert!"
+                notificationSend "curl und lftp sind nicht installiert!"
                 exit
             fi
         else
