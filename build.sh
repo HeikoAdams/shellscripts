@@ -386,44 +386,44 @@ function buildCOPR {
 
     # COPR, übernehmen Sie
     if [ -n "$CLI" ]; then
-        echo "Suche nach passendem COPR ..."
-        for COPRS in $($CLI list | grep Name | awk '{print $2}' | grep $PRJ); do
-            if [ $AUTO == true ]; then
-                USE="j"
-            else
-                read -p "COPR $COPRS verwenden? (j/n/q) " USE
-            fi
+        if [ -s "$HOME/.config/minibuild/coprs.conf" ]; then
+            echo "Suche in coprs.conf nach passendem COPR ..."
+            COPRS=$(grep $PRJ $HOME/.config/minibuild/coprs.conf)
+            COPRS=${COPRS#*=}
 
-            if [ "${USE,,}" == "j" ]; then
-                COPR=$COPRS
-                break
-            elif [ "${USE,,}" == "q" ]; then
-                exit
+            if [ -n "$COPRS" ]; then
+                if [ $AUTO == true ]; then
+                    USE="j"
+                else
+                    read -p "COPR $COPRS verwenden? (j/n/q) " USE
+                fi
+
+                if [ "${USE,,}" == "j" ]; then
+                    COPR=$COPRS
+                    echo "Verwende COPR $COPRS zum Erstellen der Pakete..."
+                elif [ "${USE,,}" == "q" ]; then
+                    exit
+                fi
             fi
-        done
+        fi
 
         # Kein passendes COPR gefunden -> in coprs.conf nachschauen
         if [ -z "$COPR" ]; then
-            if [ -s "$HOME/.config/minibuild/coprs.conf" ]; then
-                echo "Suche in coprs.conf nach passendem COPR ..."
-                COPRS=$(grep $PRJ $HOME/.config/minibuild/coprs.conf)
-                COPRS=${COPRS#*=}
-
-                if [ -n "$COPRS" ]; then
-                    if [ $AUTO == true ]; then
-                        USE="j"
-                    else
-                        read -p "COPR $COPRS verwenden? (j/n/q) " USE
-                    fi
-
-                    if [ "${USE,,}" == "j" ]; then
-                        COPR=$COPRS
-                        echo "Verwende COPR $COPRS zum Erstellen der Pakete..."
-                    elif [ "${USE,,}" == "q" ]; then
-                        exit
-                    fi
+            echo "Suche nach passendem COPR ..."
+            for COPRS in $($CLI list | grep Name | awk '{print $2}' | grep $PRJ); do
+                if [ $AUTO == true ]; then
+                    USE="j"
+                else
+                    read -p "COPR $COPRS verwenden? (j/n/q) " USE
                 fi
-            fi
+
+                if [ "${USE,,}" == "j" ]; then
+                    COPR=$COPRS
+                    break
+                elif [ "${USE,,}" == "q" ]; then
+                    exit
+                fi
+            done
         fi
 
         # Noch immer kein passendes COPR gefunden -> User fragen
@@ -562,7 +562,7 @@ if [ -f $LOCKFILE ]; then
     echo "Das Build-Script wird bereits ausgeführt"
     exit 1
 fi
-> $LOCKFILE
+echo $ARGS > $LOCKFILE
 trap -- "rm $LOCKFILE" EXIT
 
 main
