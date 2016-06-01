@@ -307,6 +307,7 @@ function buildRPM {
 
 function uploadSources {
     local AUTO="$1"
+    local LOCALBUILD="$2"
     local UPLOAD
     local FTPPARM=""
 
@@ -367,11 +368,13 @@ function uploadSources {
 function buildCOPR {
     local PRJ="$1"
     local AUTO="$2"
+    local LOCALBUILD="$3"
     local BUILDCOPR
     local COPRS
     local USE
     local CHROOT
     local CHROOTS
+    local COUNTER=0
 
     if [ $AUTO == true ]; then
         BUILDCOPR="j"
@@ -389,9 +392,10 @@ function buildCOPR {
         if [ -s "$HOME/.config/minibuild/coprs.conf" ]; then
             echo "Suche in coprs.conf nach passendem COPR ..."
             COPRS=$(grep $PRJ $HOME/.config/minibuild/coprs.conf)
+            COUNTER=$(grep $PRJ $HOME/.config/minibuild/coprs.conf | wc -l)
             COPRS=${COPRS#*=}
 
-            if [ -n "$COPRS" ]; then
+            if [[ -n "$COPRS" && $COUNTER == 1 ]]; then
                 if [ $AUTO == true ]; then
                     USE="j"
                 else
@@ -407,8 +411,8 @@ function buildCOPR {
             fi
         fi
 
-        # Kein passendes COPR gefunden -> in coprs.conf nachschauen
-        if [ -z "$COPR" ]; then
+        # Kein passendes COPR gefunden -> das COPR CLI befragen
+        if [[ -z "$COPR" || $COUNTER != 1 ]]; then
             echo "Suche nach passendem COPR ..."
             for COPRS in $($CLI list | grep Name | awk '{print $2}' | grep $PRJ); do
                 if [ $AUTO == true ]; then
@@ -433,7 +437,7 @@ function buildCOPR {
 
         # COPR-Build veranlassen
         if [ -n "$COPR" ]; then
-            if [ -n "$HTTPHOST" ]; then
+            if [[ -n "$HTTPHOST" || $LOCALBUILD == true ]]; then
                 # Nachschauen, ob ein Projekt/COPR nur für bestimmte
                 # chroots gebaut werden soll
                 if [ -s "$HOME/.config/minibuild/chroots.conf" ]; then
@@ -447,7 +451,11 @@ function buildCOPR {
                 # Paket(e) bauen
                 if [ -z "$CHROOTS" ]; then
                     echo
-                    $CLI build "$COPR" http://$HTTPHOST/$HTTPPATH/$SRCRPM
+                    if [ $LOCALBUILD == true ]; then
+                        $CLI build "$COPR" "$SRPM"
+                    else
+                        $CLI build "$COPR" http://$HTTPHOST/$HTTPPATH/$SRCRPM
+                    fi
                 else
                     echo
                     OLDIFS=$IFS
@@ -458,7 +466,11 @@ function buildCOPR {
                     done
 
                     IFS=$OLDIFS
-                    $CLI build "$COPR" $CMDLINE http://$HTTPHOST/$HTTPPATH/$SRCRPM
+                    if [ $LOCALBUILD == true ]; then
+                        $CLI build "$COPR" $CMDLINE "$SRPM"
+                    else
+                        $CLI build "$COPR" $CMDLINE http://$HTTPHOST/$HTTPPATH/$SRCRPM
+                    fi
                 fi
             else
                 notificationSend "$HOME/.config/minibuild/chroots.conf ist fehlerhaft!"
@@ -474,6 +486,8 @@ function buildCOPR {
 function buildProject {
     local AUTO=true
     local BINARY=false
+    local UPLOAD=false
+    local LOCALBUILD=false
     local PRJ="$1"
     local OPT="$2"
     local DIR
@@ -490,6 +504,9 @@ function buildProject {
         if [ "$OPT" == "binary" ]; then
             BINARY=true
         fi
+        if [ "$OPT" == "noupload" ]; then
+            LOCALBUILD=true
+        fi
     fi
 
     initVars
@@ -497,8 +514,10 @@ function buildProject {
     downloadSources $PRJ $AUTO
     buildRPM $PRJ $BINARY
     moveLocal
-    uploadSources $AUTO
-    buildCOPR $PRJ $AUTO
+    if [ $LOCALBUILD == false ]; then
+        uploadSources $AUTO
+    fi
+    buildCOPR $PRJ $AUTO $LOCALBUILD
 }
 
 function cmdline {
