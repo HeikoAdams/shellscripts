@@ -52,7 +52,7 @@ function prepareBuild {
 
     if [ "$WDIR" != "$HOME/rpmbuild" ]; then
         cd "$HOME/rpmbuild"
-        readonly WORKDIR=$(PWD)
+        readonly WORKDIR=$(pwd)
     fi
 }
 
@@ -252,7 +252,8 @@ function buildRPM {
     find . -name "*log" -type f -exec rm -f '{}' \;
 
     echo "Räume Build-Verzeichnisse auf ..."
-    DIRS=$(ls -d "$HOME/rpmbuild/BUILD*")
+    DIRS=$(find "$HOME/rpmbuild" -name "BUILD*" -type d)
+
     for DIR in $DIRS ; do
         rm -rf "${DIR:?}/*"
     done
@@ -560,6 +561,7 @@ function cmdline {
     # http://kirk.webfinish.com/2009/10/bash-shell-script-to-use-getopts-with-gnu-style-long-positional-parameters/
     local ARG
     local PARAM
+    local OPTION
 
     for ARG; do
         local DELIM=""
@@ -601,16 +603,15 @@ function cmdline {
 }
 
 function main {
-    cmdline "$ARGS"
+    cmdline $ARGS
     prepareBuild
     buildProject "$PARAMFILE" "$PARAMOPT"
 }
 
-local CURRDIR
 CURRDIR=$(dirname "$0")
 readonly PROGNAME=$(basename "$0")
 readonly PROGDIR=$(readlink -m "$CURRDIR")
-readonly ARGS=( "$@" )
+readonly ARGS="$@"
 readonly LOCKFILE=/home/heiko/build.lock
 
 if [ -f $LOCKFILE ]; then
@@ -619,7 +620,7 @@ if [ -f $LOCKFILE ]; then
     echo "==========================================="
     exit 1
 fi
-echo "${ARGS[*]}" > $LOCKFILE
+echo "$ARGS" > $LOCKFILE
 trap -- "rm $LOCKFILE" EXIT
 
 main
