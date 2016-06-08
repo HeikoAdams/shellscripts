@@ -22,24 +22,24 @@
 
 function initConfig {
     if [ ! -d "$HOME/.config/minibuild/" ]; then
-        mkdir -p $HOME/.config/minibuild/
+        mkdir -p "$HOME"/.config/minibuild/
         notificationSend "Konfigurationsverzeichnis erstellt! Bitte überprüfen Sie die minibuild-Konfiguration!"
         exit -1
     else
         if [ ! -e "$HOME/.config/minibuild/chroots.conf" ]; then
-            touch $HOME/.config/minibuild/chroots.conf
+            touch "$HOME"/.config/minibuild/chroots.conf
             notificationSend "Konfigurationsdatei chroots.conf erstellt!"
             exit -1
         fi
 
         if [ ! -e "$HOME/.config/minibuild/coprs.conf" ]; then
-            touch $HOME/.config/minibuild/coprs.conf
+            touch "$HOME"/.config/minibuild/coprs.conf
             notificationSend "Konfigurationsdatei coprs.conf erstellt!"
             exit -1
         fi
 
         if [ ! -e "$HOME/.config/minibuild/ftp.conf" ]; then
-            touch $HOME/.config/minibuild/ftp.conf
+            touch "$HOME"/.config/minibuild/ftp.conf
             notificationSend "Konfigurationsdatei ftp.conf erstellt!"
             exit -1
         fi
@@ -47,10 +47,12 @@ function initConfig {
 }
 
 function prepareBuild {
-    local WDIR=$(pwd)
+    local WDIR
+    WDIR=$(pwd)
 
     if [ "$WDIR" != "$HOME/rpmbuild" ]; then
-        cd $HOME/rpmbuild
+        cd "$HOME/rpmbuild"
+        readonly WORKDIR=$(PWD)
     fi
 }
 
@@ -81,15 +83,15 @@ function initVars {
     readonly LFTP=$(whereis lftp | awk '{print $2}')
 
     # Paketspezifische Variablen füllen
-    readonly ARCH=$(grep BuildArch: SPECS/$PRJ.spec | awk '{print $2}');
-    readonly SRC=$(grep Source: SPECS/$PRJ.spec | awk '{print $2}');
-    readonly NAME=$(grep Name: SPECS/$PRJ.spec | head -1 | awk '{print $2}');
-    readonly PRJNAME=$(grep prjname SPECS/$PRJ.spec | head -1 | awk '{print $3}');
-    readonly PKGNAME=$(grep pkgname SPECS/$PRJ.spec | head -1 | awk '{print $3}');
-    readonly BRANCH=$(grep branch SPECS/$PRJ.spec | head -1 | awk '{print $3}');
-    readonly VERSION=$(grep Version: SPECS/$PRJ.spec | head -1 | awk '{print $2}');
-    readonly COMMIT=$(grep commit SPECS/$PRJ.spec | head -1 | awk '{print $3}');
-    readonly BZR_REV=$(grep bzr_rev SPECS/$PRJ.spec | head -1 | awk '{print $3}');
+    readonly ARCH=$(grep BuildArch: SPECS/"$PRJ".spec | awk '{print $2}');
+    readonly SRC=$(grep Source: SPECS/"$PRJ".spec | awk '{print $2}');
+    readonly NAME=$(grep Name: SPECS/"$PRJ".spec | head -1 | awk '{print $2}');
+    readonly PRJNAME=$(grep prjname SPECS/"$PRJ".spec | head -1 | awk '{print $3}');
+    readonly PKGNAME=$(grep pkgname SPECS/"$PRJ".spec | head -1 | awk '{print $3}');
+    readonly BRANCH=$(grep branch SPECS/"$PRJ".spec | head -1 | awk '{print $3}');
+    readonly VERSION=$(grep Version: SPECS/"$PRJ".spec | head -1 | awk '{print $2}');
+    readonly COMMIT=$(grep commit SPECS/"$PRJ".spec | head -1 | awk '{print $3}');
+    readonly BZR_REV=$(grep bzr_rev SPECS/"$PRJ".spec | head -1 | awk '{print $3}');
 
     # Wenn im SPEC keine BuildArch angegeben ist, für die eigene Prozessor-
     # Architektur bauen
@@ -102,7 +104,7 @@ function initVars {
     # Falls keine Angabe zum Source-Tag gefunden wurde, im Source0-Tag
     # nachschauen
     if [ -z "$SRC" ]; then
-        readonly SOURCE=$(grep Source0: SPECS/$PRJ.spec | awk '{print $2}');
+        readonly SOURCE=$(grep Source0: SPECS/"$PRJ".spec | awk '{print $2}');
     else
         readonly SOURCE=$SRC
     fi
@@ -117,31 +119,36 @@ function moveLocal {
     local ARCHDIR
     local FILES
     local RPMFILE
+    local DIRS
+    local COUNTER
+    local SPEC
 
     # Das src.rpm wird nicht benötigt und deshalb gelöscht
-    rm -rf $HOME/rpmbuild/RPMS/*$PRJ*.src.rpm
+    rm -rf "$HOME/rpmbuild/RPMS/*$PRJ*.src.rpm"
 
-    for ARCHDIR in $(ls $HOME/rpmbuild/RPMS/); do
-        FILES=$(ls $HOME/rpmbuild/RPMS/*$ARCHDIR*.rpm 2> /dev/null | wc -l)
+    DIRS=$(ls "$HOME/rpmbuild/RPMS/")
+
+    for ARCHDIR in $DIRS; do
+        FILES=$(find "$HOME/rpmbuild/RPMS/" -maxdepth 1 -name "x86_64" -type f 2> /dev/null | wc -l)
 
         if [ "$FILES" != "0" ]; then
             echo
             echo "lösche vorhandene RPMs aus $HOME/rpmbuild/RPMS/$ARCHDIR/"
-            rm -rf $HOME/rpmbuild/RPMS/$ARCHDIR/*$PRJ*.rpm
+            rm -rf "$HOME/rpmbuild/RPMS/$ARCHDIR/*$PRJ*.rpm"
 
             echo "kopiere RPMs nach $HOME/rpmbuild/RPMS/$ARCHDIR/"
-            mv -f $HOME/rpmbuild/RPMS/*$ARCHDIR*.rpm $HOME/rpmbuild/RPMS/$ARCHDIR/
+            mv -f "$HOME/rpmbuild/RPMS/*$ARCHDIR*.rpm $HOME/rpmbuild/RPMS/$ARCHDIR/"
 
             if [ -n "$RPMLINT" ]; then
-                local RPMFILE=$(find . -path "./RPMS/$ARCHDIR/$NAME-$VERSION*.rpm" -type f)
-                local COUNTER=$(find . -path "./RPMS/$ARCHDIR/$NAME-$VERSION*.rpm" -type f | wc -l)
-                local SPEC=$(readlink -f ./SPECS/$PRJ.spec)
+                RPMFILE=$(find . -path "./RPMS/$ARCHDIR/$NAME-$VERSION*.rpm" -type f)
+                COUNTER=$(find . -path "./RPMS/$ARCHDIR/$NAME-$VERSION*.rpm" -type f | wc -l)
+                SPEC=$(readlink -f "./SPECS/$PRJ.spec")
 
                 echo "Prüfe $PRJ Pakete mit rpmlint"
-                if [ $COUNTER == 1 ]; then
-                    $RPMLINT $SRPM $RPMFILE $SPEC
+                if [ "$COUNTER" == 1 ]; then
+                    $RPMLINT "$SRPM" "$RPMFILE" "$SPEC"
                 else
-                    $RPMLINT $SRPM $SPEC
+                    $RPMLINT "$SRPM" "$SPEC"
                 fi
             else
                 echo "rpmlint ist nicht installiert"
@@ -156,8 +163,9 @@ function downloadSources {
     local DOWNLOAD
     local MATCH
     local URL
+    local DEST
 
-    if [ $AUTO == true ]; then
+    if [ "$AUTO" == true ]; then
         DOWNLOAD="j"
     else
         echo
@@ -202,18 +210,18 @@ function downloadSources {
         fi
 
         # Dateinamen des lokalen Sourcen-Archivs generieren
-        local DEST=$(echo $URL | awk -F\/ '{print $NF}')
+        DEST=$(echo "$URL" | awk -F\/ '{print $NF}')
 
         # Wenn eine URL als Source angegeben ist, die Datei herunterladen
-        if [ ${URL:0:3} == "ftp" ] || [ ${URL:0:4} == "http" ]; then
+        if [ "${URL:0:3}" == "ftp" ] || [ "${URL:0:4}" == "http" ]; then
             echo "lösche alte Sourcen ..."
-            rm -f SOURCES/*$PRJ*.gz
-            rm -f SOURCES/*$PRJ*.xz
-            rm -f SOURCES/*$PRJ*.bz2
+            rm -f "SOURCES/*$PRJ*.gz"
+            rm -f "SOURCES/*$PRJ*.xz"
+            rm -f "SOURCES/*$PRJ*.bz2"
 
             if [ -n "$WGET" ]; then
                 echo "Lade Source-Archiv $URL herunter ..."
-                $WGET $URL --show-progress -q -O SOURCES/$DEST
+                $WGET "$URL" --show-progress -q -O "SOURCES/$DEST"
                 RC=$?
                 if [ $RC != 0 ]; then
                     notificationSend "Download fehlgeschlagen! (Fehlercode $RC)"
@@ -230,19 +238,23 @@ function downloadSources {
 function buildRPM {
     local PRJ="$1"
     local BINARY="$2"
+    local KEEP="$3"
     local DIR
+    local DIRS
     local BUILD
+    local SOURCEFILE
 
     echo
     echo "lösche vorhandene SRPMs ..."
-    rm -rf $HOME/rpmbuild/SRPMS/*$PRJ*.rpm
+    rm -rf "$HOME/rpmbuild/SRPMS/*$PRJ*.rpm"
 
     echo "lösche alte Logs ..."
-    find . -name *log -type f -exec rm -f '{}' \;
+    find . -name "*log" -type f -exec rm -f '{}' \;
 
     echo "Räume Build-Verzeichnisse auf ..."
-    for DIR in $(ls $HOME/rpmbuild/ | grep BUILD); do
-        rm -rf $DIR/*
+    DIRS=$(ls -d "$HOME/rpmbuild/BUILD*")
+    for DIR in $DIRS ; do
+        rm -rf "${DIR:?}/*"
     done
 
     echo
@@ -250,12 +262,14 @@ function buildRPM {
 
     # SRPM erstellen
     if [ -n "$MOCK" ]; then
-        $MOCK --dnf --buildsrpm\
-          --spec=$HOME/rpmbuild/SPECS/$PRJ.spec\
-          --sources=$HOME/rpmbuild/SOURCES\
-          --resultdir=$HOME/rpmbuild/SRPMS
+        $MOCK --dnf \
+          --buildsrpm \
+          --spec="$HOME/rpmbuild/SPECS/$PRJ.spec" \
+          --sources="$HOME/rpmbuild/SOURCES" \
+          --resultdir="$HOME/rpmbuild/SRPMS" \
+          --quiet
         RC=$?
-        if [ $RC != 0 ]; then
+        if [ "$RC" != 0 ]; then
             notificationSend "SRPM-Build fehlgeschlagen! (Fehlercode $RC)"
             exit
         fi
@@ -265,9 +279,9 @@ function buildRPM {
     fi
 
     # Pfad zum SRPM generieren
-    local SOURCEFILE=$(find . -path "./SRPMS/$PRJ*" -type f)
-    readonly SRPM=$(readlink -f $SOURCEFILE)
-    readonly SRCRPM=$(basename $SRPM)
+    SOURCEFILE=$(find . -path "./SRPMS/$PRJ*" -type f)
+    readonly SRPM=$(readlink -f "$SOURCEFILE")
+    readonly SRCRPM=$(basename "$SRPM")
 
     if [ -z "$SRPM" ]; then
         notificationSend "konnte das SRPM nicht finden!"
@@ -275,9 +289,9 @@ function buildRPM {
     fi
 
     echo
-    if [ $BINARY == true ]; then
+    if [ "$BINARY" == true ]; then
         BUILD="j"
-    elif [ $AUTO == true ]; then
+    elif [ "$AUTO" == true ]; then
         BUILD="n"
     else
         read -p "Binärpakete erstellen? (j/n/q) " BUILD
@@ -287,12 +301,27 @@ function buildRPM {
     if [ "${BUILD,,}" == "j" ]; then
         echo "Erstelle Binärpaket ..."
         if [ -n "$MOCK" ]; then
-            $MOCK rebuild $SRPM --target=$BARCH --dnf\
-                --resultdir=$HOME/rpmbuild/RPMS
+            if [ "$KEEP" == true ]; then
+                $MOCK rebuild "$SRPM" \
+                    --target="$BARCH" \
+                    --dnf \
+                    --resultdir="$HOME/rpmbuild/RPMS" \
+                    --quiet
+            else
+                $MOCK rebuild "$SRPM" \
+                    --target="$BARCH" \
+                    --dnf \
+                    --quiet
+            fi
             RC=$?
-            if [ $RC != 0 ]; then
+            if [ "$RC" != 0 ]; then
                 notificationSend "Build fehlgeschlagen! (Fehlercode $RC)"
                 exit
+            else
+                if [ "$KEEP" != true ]; then
+                    echo "Bereinige mock chroot ..."
+                    $MOCK --clean --quiet
+                fi
             fi
         else
             notificationSend "mock ist nicht installiert"
@@ -309,18 +338,17 @@ function uploadSources {
     local AUTO="$1"
     local LOCALBUILD="$2"
     local UPLOAD
-    local FTPPARM=""
 
     # FTP-Zugangsdaten auslesen sowie URL des SRPM auslesen
     if [ -s "$HOME/.config/minibuild/ftp.conf" ]; then
-        source $HOME/.config/minibuild/ftp.conf
+        source "$HOME/.config/minibuild/ftp.conf"
     else
         notificationSend "FTP-Zugangsdaten sind nicht konfiguriert"
         exit
     fi
 
     echo
-    if [ $AUTO == true ]; then
+    if [ "$AUTO" == true ]; then
         UPLOAD="j"
     else
         read -p "Upload des Source-Paketes? (j/n/q) " UPLOAD
@@ -334,7 +362,7 @@ function uploadSources {
             echo "lade $SRPM auf FTP-Server hoch ..."
             if [ -n "$LFTP" ]; then
                 local FTPURL="ftp://$FTPUSER:$FTPPWD@$FTPHOST"
-                local LCD="~/rpmbuild/SRPMS"
+                local LCD="$WORKDIR/SRPMS"
                 local DELETE="--delete"
                 local NOVERFIY="set ssl:verify-certificate no;"
                 $LFTP -c "set ftp:list-options -a; $NOVERFIY
@@ -346,9 +374,9 @@ function uploadSources {
                        --verbose \
                        --exclude-glob *.log"
             elif [ -n "$CURL" ]; then
-                $CURL --ftp-ssl -# -k -T $SRPM -u "$FTPUSER:$FTPPWD" ftp://$FTPHOST/$FTPPATH
+                $CURL --ftp-ssl -# -k -T "$SRPM" -u "$FTPUSER:$FTPPWD" "ftp://$FTPHOST/$FTPPATH"
                 RC=$?
-                if [ $RC != 0 ]; then
+                if [ "$RC" != 0 ]; then
                     notificationSend "Upload fehlgeschlagen! (Fehlercode $RC)"
                     exit
                 fi
@@ -376,10 +404,10 @@ function buildCOPR {
     local CHROOTS
     local COUNTER=0
 
-    if [ $AUTO == true ]; then
+    echo
+    if [ "$AUTO" == true ]; then
         BUILDCOPR="j"
     else
-        echo
         read -p "Paket(e) im COPR bauen? (j/n/) " BUILDCOPR
     fi
 
@@ -391,12 +419,12 @@ function buildCOPR {
     if [ -n "$CLI" ]; then
         if [ -s "$HOME/.config/minibuild/coprs.conf" ]; then
             echo "Suche in coprs.conf nach passendem COPR ..."
-            COPRS=$(grep $PRJ $HOME/.config/minibuild/coprs.conf)
-            COUNTER=$(grep $PRJ $HOME/.config/minibuild/coprs.conf | wc -l)
+            COPRS=$(grep "$PRJ" "$HOME/.config/minibuild/coprs.conf")
+            COUNTER=$(grep -c "$PRJ" "$HOME/.config/minibuild/coprs.conf")
             COPRS=${COPRS#*=}
 
-            if [[ -n "$COPRS" && $COUNTER == 1 ]]; then
-                if [ $AUTO == true ]; then
+            if [[ -n "$COPRS" && "$COUNTER" == 1 ]]; then
+                if [ "$AUTO" == true ]; then
                     USE="j"
                 else
                     read -p "COPR $COPRS verwenden? (j/n/q) " USE
@@ -414,8 +442,8 @@ function buildCOPR {
         # Kein passendes COPR gefunden -> das COPR CLI befragen
         if [[ -z "$COPR" || $COUNTER != 1 ]]; then
             echo "Suche nach passendem COPR ..."
-            for COPRS in $($CLI list | grep Name | awk '{print $2}' | grep $PRJ); do
-                if [ $AUTO == true ]; then
+            for COPRS in $($CLI list | grep Name | awk '{print $2}' | grep "$PRJ"); do
+                if [ "$AUTO" == true ]; then
                     USE="j"
                 else
                     read -p "COPR $COPRS verwenden? (j/n/q) " USE
@@ -441,9 +469,9 @@ function buildCOPR {
                 # Nachschauen, ob ein Projekt/COPR nur für bestimmte
                 # chroots gebaut werden soll
                 if [ -s "$HOME/.config/minibuild/chroots.conf" ]; then
-                    CHROOT=$(grep $PRJ $HOME/.config/minibuild/chroots.conf)
+                    CHROOT=$(grep "$PRJ" "$HOME/.config/minibuild/chroots.conf")
                     if [ -z "$CHROOT" ]; then
-                        CHROOT=$(grep $COPR $HOME/.config/minibuild/chroots.conf)
+                        CHROOT=$(grep "$COPR" "$HOME/.config/minibuild/chroots.conf")
                     fi
                     CHROOTS=${CHROOT#*=}
                 fi
@@ -451,10 +479,10 @@ function buildCOPR {
                 # Paket(e) bauen
                 if [ -z "$CHROOTS" ]; then
                     echo
-                    if [ $LOCALBUILD == true ]; then
+                    if [ "$LOCALBUILD" == true ]; then
                         $CLI build "$COPR" "$SRPM"
                     else
-                        $CLI build "$COPR" http://$HTTPHOST/$HTTPPATH/$SRCRPM
+                        $CLI build "$COPR" "http://$HTTPHOST/$HTTPPATH/$SRCRPM"
                     fi
                 else
                     echo
@@ -466,10 +494,10 @@ function buildCOPR {
                     done
 
                     IFS=$OLDIFS
-                    if [ $LOCALBUILD == true ]; then
-                        $CLI build "$COPR" $CMDLINE "$SRPM"
+                    if [ "$LOCALBUILD" == true ]; then
+                        $CLI build "$COPR" "$CMDLINE" "$SRPM"
                     else
-                        $CLI build "$COPR" $CMDLINE http://$HTTPHOST/$HTTPPATH/$SRCRPM
+                        $CLI build "$COPR" "$CMDLINE" "http://$HTTPHOST/$HTTPPATH/$SRCRPM"
                     fi
                 fi
             else
@@ -488,11 +516,12 @@ function buildProject {
     local BINARY=false
     local UPLOAD=false
     local LOCALBUILD=false
+    local KEEP=false
     local PRJ="$1"
     local OPT="$2"
     local DIR
 
-    if [ -e !SPECS/$PRJ.spec ]; then
+    if [ -e !"SPECS/$PRJ.spec" ]; then
         notificationSend "Die angegebene Spec-Datei existiert nicht!"
         exit
     fi
@@ -503,6 +532,10 @@ function buildProject {
         fi
         if [ "$OPT" == "binary" ]; then
             BINARY=true
+            KEEP=true
+        fi
+        if [ "$OPT" == "test" ]; then
+            BINARY=true
         fi
         if [ "$OPT" == "noupload" ]; then
             LOCALBUILD=true
@@ -511,13 +544,15 @@ function buildProject {
 
     initVars
     initConfig
-    downloadSources $PRJ $AUTO
-    buildRPM $PRJ $BINARY
-    moveLocal
+    downloadSources "$PRJ" $AUTO
+    buildRPM "$PRJ" $BINARY $KEEP
+    if [ $KEEP == true ]; then
+        moveLocal
+    fi
     if [ $LOCALBUILD == false ]; then
         uploadSources $AUTO
     fi
-    buildCOPR $PRJ $AUTO $LOCALBUILD
+    buildCOPR "$PRJ" $AUTO $LOCALBUILD
 }
 
 function cmdline {
@@ -525,7 +560,6 @@ function cmdline {
     # http://kirk.webfinish.com/2009/10/bash-shell-script-to-use-getopts-with-gnu-style-long-positional-parameters/
     local ARG
     local PARAM
-    local OPTION
 
     for ARG; do
         local DELIM=""
@@ -559,29 +593,33 @@ function cmdline {
     [[ -z $PARAMFILE ]] \
         && echo "You must provide --spec file" && exit
 
-    if [ -z $PARAMOPT ]; then
-        readonly PARAMOPT="binary"
+    if [ -z "$PARAMOPT" ]; then
+        readonly PARAMOPT="test"
     fi
 
     return 0
 }
 
 function main {
-    cmdline $ARGS
+    cmdline "$ARGS"
     prepareBuild
     buildProject "$PARAMFILE" "$PARAMOPT"
 }
 
-readonly PROGNAME=$(basename $0)
-readonly PROGDIR=$(readlink -m $(dirname $0))
-readonly ARGS="$@"
+local CURRDIR
+CURRDIR=$(dirname "$0")
+readonly PROGNAME=$(basename "$0")
+readonly PROGDIR=$(readlink -m "$CURRDIR")
+readonly ARGS=( "$@" )
 readonly LOCKFILE=/home/heiko/build.lock
 
 if [ -f $LOCKFILE ]; then
+    echo "==========================================="
     echo "Das Build-Script wird bereits ausgeführt"
+    echo "==========================================="
     exit 1
 fi
-echo $ARGS > $LOCKFILE
+echo "${ARGS[*]}" > $LOCKFILE
 trap -- "rm $LOCKFILE" EXIT
 
 main
