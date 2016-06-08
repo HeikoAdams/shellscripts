@@ -124,7 +124,7 @@ function moveLocal {
     local SPEC
 
     # Das src.rpm wird nicht benötigt und deshalb gelöscht
-    rm -rf "$HOME/rpmbuild/RPMS/*$PRJ*.src.rpm"
+    find "$HOME/rpmbuild/RPMS/" -name "*src.rpm" -maxdepth 1 -type f -exec rm -f '{}' \;
 
     DIRS=$(ls "$HOME/rpmbuild/RPMS/")
 
@@ -134,7 +134,7 @@ function moveLocal {
         if [ "$FILES" != "0" ]; then
             echo
             echo "lösche vorhandene RPMs aus $HOME/rpmbuild/RPMS/$ARCHDIR/"
-            rm -rf "$HOME/rpmbuild/RPMS/$ARCHDIR/*$PRJ*.rpm"
+            find "$HOME/rpmbuild/RPMS/$ARCHDIR/" -name "*$PRJ*" -type f -exec rm -f '{}' \;
 
             echo "kopiere RPMs nach $HOME/rpmbuild/RPMS/$ARCHDIR/"
             mv -f "$HOME/rpmbuild/RPMS/*$ARCHDIR*.rpm $HOME/rpmbuild/RPMS/$ARCHDIR/"
@@ -215,9 +215,8 @@ function downloadSources {
         # Wenn eine URL als Source angegeben ist, die Datei herunterladen
         if [ "${URL:0:3}" == "ftp" ] || [ "${URL:0:4}" == "http" ]; then
             echo "lösche alte Sourcen ..."
-            rm -f "SOURCES/*$PRJ*.gz"
-            rm -f "SOURCES/*$PRJ*.xz"
-            rm -f "SOURCES/*$PRJ*.bz2"
+            find "$HOME/rpmbuild/SOURCES/" -name "*$PRJ*.tar.*" -type f -exec rm -f '{}' \;
+            find "$HOME/rpmbuild/SOURCES/" -name "*$PRJ*.zip" -type f -exec rm -f '{}' \;
 
             if [ -n "$WGET" ]; then
                 echo "Lade Source-Archiv $URL herunter ..."
@@ -247,7 +246,7 @@ function buildRPM {
 
     echo
     echo "lösche vorhandene SRPMs ..."
-    rm -rf "$HOME/rpmbuild/SRPMS/*$PRJ*.rpm"
+    find "$HOME/rpmbuild/SRPMS/" -name "*$PRJ*" -type f -exec rm -f '{}' \;
 
     echo "lösche alte Logs ..."
     find . -name "*log" -type f -exec rm -f '{}' \;
@@ -256,7 +255,7 @@ function buildRPM {
     DIRS=$(find "$HOME/rpmbuild" -name "BUILD*" -type d)
 
     for DIR in $DIRS ; do
-        rm -rf "${DIR:?}/*"
+        rm -rf ${DIR:?}/*
     done
 
     echo
@@ -482,9 +481,9 @@ function buildCOPR {
                 if [ -z "$CHROOTS" ]; then
                     echo
                     if [ "$LOCALBUILD" == true ]; then
-                        $CLI build "$COPR" "$SRPM"
+                        $CLI build $COPR "$SRPM"
                     else
-                        $CLI build "$COPR" "http://$HTTPHOST/$HTTPPATH/$SRCRPM"
+                        $CLI build $COPR "http://$HTTPHOST/$HTTPPATH/$SRCRPM"
                     fi
                 else
                     echo
@@ -497,9 +496,9 @@ function buildCOPR {
 
                     IFS=$OLDIFS
                     if [ "$LOCALBUILD" == true ]; then
-                        $CLI build "$COPR" "$CMDLINE" "$SRPM"
+                        $CLI build $COPR $CMDLINE "$SRPM"
                     else
-                        $CLI build "$COPR" "$CMDLINE" "http://$HTTPHOST/$HTTPPATH/$SRCRPM"
+                        $CLI build $COPR $CMDLINE "http://$HTTPHOST/$HTTPPATH/$SRCRPM"
                     fi
                 fi
             else
