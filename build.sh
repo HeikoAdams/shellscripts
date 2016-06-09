@@ -158,86 +158,71 @@ function moveLocal {
 }
 
 function downloadSources {
-    local PRJ="$1"
-    local AUTO="$2"
-    local DOWNLOAD
     local MATCH
     local URL
     local DEST
 
-    if [ "$AUTO" == true ]; then
-        DOWNLOAD="j"
-    else
-        echo
-        read -p "Sourcen herunterladen? (j/n) " DOWNLOAD
+    # URL für den Download der Sourcen zusammenbauen
+    MATCH="%{name}"
+    URL=${SOURCE//$MATCH/$NAME}
+    MATCH="%{version}"
+    URL=${URL//$MATCH/$VERSION}
+
+    if [ -n "$PRJNAME" ]; then
+        MATCH="%{prjname}"
+        URL=${URL//$MATCH/$PRJNAME}
     fi
 
-    if [ "${DOWNLOAD,,}" == "j" ]; then
-        # URL für den Download der Sourcen zusammenbauen
-        MATCH="%{name}"
-        URL=${SOURCE//$MATCH/$NAME}
-        MATCH="%{version}"
-        URL=${URL//$MATCH/$VERSION}
+    if [ -n "$PKGNAME" ]; then
+        MATCH="%{pkgname}"
+        URL=${URL//$MATCH/$PKGNAME}
+    fi
 
-        if [ -n "$PRJNAME" ]; then
-            MATCH="%{prjname}"
-            URL=${URL//$MATCH/$PRJNAME}
-        fi
+    if [ -n "$BRANCH" ]; then
+        MATCH="%{branch}"
+        URL=${URL//$MATCH/$BRANCH}
+    fi
 
-        if [ -n "$PKGNAME" ]; then
-            MATCH="%{pkgname}"
-            URL=${URL//$MATCH/$PKGNAME}
-        fi
+    if [ -n "$COMMIT" ]; then
+        MATCH="%{commit}"
+        URL=${URL//$MATCH/$COMMIT}
+    fi
 
-        if [ -n "$BRANCH" ]; then
-            MATCH="%{branch}"
-            URL=${URL//$MATCH/$BRANCH}
-        fi
+    if [ -n "$HASH" ]; then
+        MATCH="%{githash}"
+        URL=${URL//$MATCH/$HASH}
+    fi
 
-        if [ -n "$COMMIT" ]; then
-            MATCH="%{commit}"
-            URL=${URL//$MATCH/$COMMIT}
-        fi
+    if [ -n "$BZR_REV" ]; then
+        MATCH="%{bzr_rev}"
+        URL=${URL//$MATCH/$BZR_REV}
+    fi
 
-        if [ -n "$HASH" ]; then
-            MATCH="%{githash}"
-            URL=${URL//$MATCH/$HASH}
-        fi
+    # Dateinamen des lokalen Sourcen-Archivs generieren
+    DEST=$(echo "$URL" | awk -F\/ '{print $NF}')
 
-        if [ -n "$BZR_REV" ]; then
-            MATCH="%{bzr_rev}"
-            URL=${URL//$MATCH/$BZR_REV}
-        fi
+    # Wenn eine URL als Source angegeben ist, die Datei herunterladen
+    if [ "${URL:0:3}" == "ftp" ] || [ "${URL:0:4}" == "http" ]; then
+        echo "lösche alte Sourcen ..."
+        find "$HOME/rpmbuild/SOURCES/" -name "*$PRJ*.tar.*" -type f -exec rm -f '{}' \;
+        find "$HOME/rpmbuild/SOURCES/" -name "*$PRJ*.zip" -type f -exec rm -f '{}' \;
 
-        # Dateinamen des lokalen Sourcen-Archivs generieren
-        DEST=$(echo "$URL" | awk -F\/ '{print $NF}')
-
-        # Wenn eine URL als Source angegeben ist, die Datei herunterladen
-        if [ "${URL:0:3}" == "ftp" ] || [ "${URL:0:4}" == "http" ]; then
-            echo "lösche alte Sourcen ..."
-            find "$HOME/rpmbuild/SOURCES/" -name "*$PRJ*.tar.*" -type f -exec rm -f '{}' \;
-            find "$HOME/rpmbuild/SOURCES/" -name "*$PRJ*.zip" -type f -exec rm -f '{}' \;
-
-            if [ -n "$WGET" ]; then
-                echo "Lade Source-Archiv $URL herunter ..."
-                $WGET "$URL" --show-progress -q -O "SOURCES/$DEST"
-                RC=$?
-                if [ $RC != 0 ]; then
-                    notificationSend "Download fehlgeschlagen! (Fehlercode $RC)"
-                    exit
-                fi
-            else
-                notificationSend "wget ist nicht installiert!"
+        if [ -n "$WGET" ]; then
+            echo "Lade Source-Archiv $URL herunter ..."
+            $WGET "$URL" --show-progress -q -O "SOURCES/$DEST"
+            RC=$?
+            if [ $RC != 0 ]; then
+                notificationSend "Download fehlgeschlagen! (Fehlercode $RC)"
                 exit
             fi
+        else
+            notificationSend "wget ist nicht installiert!"
+            exit
         fi
     fi
 }
 
 function buildRPM {
-    local PRJ="$1"
-    local BINARY="$2"
-    local KEEP="$3"
     local DIR
     local DIRS
     local BUILD
@@ -259,7 +244,7 @@ function buildRPM {
     done
 
     echo
-    echo -e "Erstelle ${1} Source-Paket"
+    echo -e "Erstelle $PRJ Source-Paket"
 
     # SRPM erstellen
     if [ -n "$MOCK" ]; then
@@ -290,19 +275,17 @@ function buildRPM {
     fi
 
     echo
-    if [ "$BINARY" == true ]; then
+    if $BINARY ; then
         BUILD="j"
-    elif [ "$AUTO" == true ]; then
-        BUILD="n"
     else
-        read -p "Binärpakete erstellen? (j/n/q) " BUILD
+        BUILD="n"
     fi
 
     # Das Binary bauen und paketieren
     if [ "${BUILD,,}" == "j" ]; then
         echo "Erstelle Binärpaket ..."
         if [ -n "$MOCK" ]; then
-            if [ "$KEEP" == true ]; then
+            if $KEEP ; then
                 $MOCK rebuild "$SRPM" \
                     --target="$BARCH" \
                     --dnf \
@@ -336,10 +319,6 @@ function buildRPM {
 }
 
 function uploadSources {
-    local AUTO="$1"
-    local LOCALBUILD="$2"
-    local UPLOAD
-
     # FTP-Zugangsdaten auslesen sowie URL des SRPM auslesen
     if [ -s "$HOME/.config/minibuild/ftp.conf" ]; then
         source "$HOME/.config/minibuild/ftp.conf"
@@ -349,56 +328,43 @@ function uploadSources {
     fi
 
     echo
-    if [ "$AUTO" == true ]; then
-        UPLOAD="j"
-    else
-        read -p "Upload des Source-Paketes? (j/n/q) " UPLOAD
-    fi
 
     # Das fertige SRPM auf den FTP-Server hochladen, damit COPR
     # es verwenden kann
-    if [ "${UPLOAD,,}" == "j" ]; then
-        if [ -n "$FTPHOST" ]; then
+    if [ -n "$FTPHOST" ]; then
 
-            echo "lade $SRPM auf FTP-Server hoch ..."
-            if [ -n "$LFTP" ]; then
-                local FTPURL="ftp://$FTPUSER:$FTPPWD@$FTPHOST"
-                local LCD="$WORKDIR/SRPMS"
-                local DELETE="--delete"
-                local NOVERFIY="set ssl:verify-certificate no;"
-                $LFTP -c "set ftp:list-options -a; $NOVERFIY
-                open '$FTPURL';
-                lcd $LCD;
-                cd $FTPPATH;
-                mirror --reverse \
-                       $DELETE \
-                       --verbose \
-                       --exclude-glob *.log"
-            elif [ -n "$CURL" ]; then
-                $CURL --ftp-ssl -# -k -T "$SRPM" -u "$FTPUSER:$FTPPWD" "ftp://$FTPHOST/$FTPPATH"
-                RC=$?
-                if [ "$RC" != 0 ]; then
-                    notificationSend "Upload fehlgeschlagen! (Fehlercode $RC)"
-                    exit
-                fi
-            else
-                notificationSend "curl und lftp sind nicht installiert!"
+        echo "lade $SRPM auf FTP-Server hoch ..."
+        if [ -n "$LFTP" ]; then
+            local FTPURL="ftp://$FTPUSER:$FTPPWD@$FTPHOST"
+            local LCD="$WORKDIR/SRPMS"
+            local DELETE="--delete"
+            local NOVERFIY="set ssl:verify-certificate no;"
+            $LFTP -c "set ftp:list-options -a; $NOVERFIY
+            open '$FTPURL';
+            lcd $LCD;
+            cd $FTPPATH;
+            mirror --reverse \
+                   $DELETE \
+                   --verbose \
+                   --exclude-glob *.log"
+        elif [ -n "$CURL" ]; then
+            $CURL --ftp-ssl -# -k -T "$SRPM" -u "$FTPUSER:$FTPPWD" "ftp://$FTPHOST/$FTPPATH"
+            RC=$?
+            if [ "$RC" != 0 ]; then
+                notificationSend "Upload fehlgeschlagen! (Fehlercode $RC)"
                 exit
             fi
         else
-            notificationSend "FTP-Zugangsdaten sind nicht konfiguriert"
+            notificationSend "curl und lftp sind nicht installiert!"
             exit
         fi
-    elif [ "${UPLOAD,,}" == "q" ]; then
+    else
+        notificationSend "FTP-Zugangsdaten sind nicht konfiguriert"
         exit
     fi
 }
 
 function buildCOPR {
-    local PRJ="$1"
-    local AUTO="$2"
-    local LOCALBUILD="$3"
-    local BUILDCOPR
     local COPRS
     local USE
     local CHROOT
@@ -406,16 +372,6 @@ function buildCOPR {
     local COUNTER=0
 
     echo
-    if [ "$AUTO" == true ]; then
-        BUILDCOPR="j"
-    else
-        read -p "Paket(e) im COPR bauen? (j/n/) " BUILDCOPR
-    fi
-
-    if [ "${BUILDCOPR,,}" == "n" ]; then
-        exit
-    fi
-
     # COPR, übernehmen Sie
     if [ -n "$CLI" ]; then
         if [ -s "$HOME/.config/minibuild/coprs.conf" ]; then
@@ -425,17 +381,11 @@ function buildCOPR {
             COPRS=${COPRS#*=}
 
             if [[ -n "$COPRS" && "$COUNTER" == 1 ]]; then
-                if [ "$AUTO" == true ]; then
-                    USE="j"
-                else
-                    read -p "COPR $COPRS verwenden? (j/n/q) " USE
-                fi
+                read -p "COPR $COPRS verwenden? (j/n) " USE
 
                 if [ "${USE,,}" == "j" ]; then
                     COPR=$COPRS
                     echo "Verwende COPR $COPRS zum Erstellen der Pakete..."
-                elif [ "${USE,,}" == "q" ]; then
-                    exit
                 fi
             fi
         fi
@@ -444,17 +394,11 @@ function buildCOPR {
         if [[ -z "$COPR" || $COUNTER != 1 ]]; then
             echo "Suche nach passendem COPR ..."
             for COPRS in $($CLI list | grep Name | awk '{print $2}' | grep "$PRJ"); do
-                if [ "$AUTO" == true ]; then
-                    USE="j"
-                else
-                    read -p "COPR $COPRS verwenden? (j/n/q) " USE
-                fi
+                read -p "COPR $COPRS verwenden? (j/n) " USE
 
                 if [ "${USE,,}" == "j" ]; then
                     COPR=$COPRS
                     break
-                elif [ "${USE,,}" == "q" ]; then
-                    exit
                 fi
             done
         fi
@@ -466,7 +410,7 @@ function buildCOPR {
 
         # COPR-Build veranlassen
         if [ -n "$COPR" ]; then
-            if [[ -n "$HTTPHOST" || $LOCALBUILD == true ]]; then
+            if [[ -n "$HTTPHOST" || $UPLOADFILE == true ]]; then
                 # Nachschauen, ob ein Projekt/COPR nur für bestimmte
                 # chroots gebaut werden soll
                 if [ -s "$HOME/.config/minibuild/chroots.conf" ]; then
@@ -480,7 +424,7 @@ function buildCOPR {
                 # Paket(e) bauen
                 if [ -z "$CHROOTS" ]; then
                     echo
-                    if [ "$LOCALBUILD" == true ]; then
+                    if ! $UPLOADFILE ; then
                         $CLI build $COPR "$SRPM"
                     else
                         $CLI build $COPR "http://$HTTPHOST/$HTTPPATH/$SRCRPM"
@@ -495,7 +439,7 @@ function buildCOPR {
                     done
 
                     IFS=$OLDIFS
-                    if [ "$LOCALBUILD" == true ]; then
+                    if ! $UPLOADFILE ; then
                         $CLI build $COPR $CMDLINE "$SRPM"
                     else
                         $CLI build $COPR $CMDLINE "http://$HTTPHOST/$HTTPPATH/$SRCRPM"
@@ -513,47 +457,24 @@ function buildCOPR {
 }
 
 function buildProject {
-    local AUTO=true
-    local BINARY=false
-    local UPLOAD=false
-    local LOCALBUILD=false
-    local KEEP=false
-    local PRJ="$1"
-    local OPT="$2"
-    local DIR
-
     if [ -e !"SPECS/$PRJ.spec" ]; then
         notificationSend "Die angegebene Spec-Datei existiert nicht!"
         exit
     fi
 
-    if [ -n "$OPT" ]; then
-        if [ "$OPT" == "noauto" ]; then
-            AUTO=false
-        fi
-        if [ "$OPT" == "binary" ]; then
-            BINARY=true
-            KEEP=true
-        fi
-        if [ "$OPT" == "test" ]; then
-            BINARY=true
-        fi
-        if [ "$OPT" == "noupload" ]; then
-            LOCALBUILD=true
-        fi
-    fi
-
     initVars
     initConfig
-    downloadSources "$PRJ" $AUTO
-    buildRPM "$PRJ" $BINARY $KEEP
-    if [ $KEEP == true ]; then
+    downloadSources
+    buildRPM
+    if $KEEP ; then
         moveLocal
     fi
-    if [ $LOCALBUILD == false ]; then
-        uploadSources $AUTO
+    if $UPLOADFILE ; then
+        uploadSources
     fi
-    buildCOPR "$PRJ" $AUTO $LOCALBUILD
+    if $COPRBUILD ; then
+        buildCOPR
+    fi
 }
 
 function cmdline {
@@ -582,22 +503,27 @@ function cmdline {
     eval set -- "$PARAM"
 
     while getopts "s:o:" opt; do
-         case $opt in
-         s)
-             readonly PARAMFILE=$OPTARG
-             ;;
-         o)
-             readonly PARAMOPT=$OPTARG
-             ;;
+        case $opt in
+            s)
+                readonly PRJ=$OPTARG
+                ;;
+            o)
+                #readonly PARAMOPT=$OPTARG
+                if [ "$OPTARG" == "nobinary" ]; then
+                    readonly BINARY=false
+                elif [ "$OPTARG" == "notest" ]; then
+                    readonly KEEP=true
+                elif [ "$OPTARG" == "noupload" ]; then
+                    readonly UPLOADFILE=false
+                elif [ "$OPTARG" == "nocopr" ]; then
+                    readonly COPRBUILD=false
+                fi
+                ;;
         esac
     done
 
-    [[ -z $PARAMFILE ]] \
+    [[ -z $PRJ ]] \
         && echo "You must provide --spec file" && exit
-
-    if [ -z "$PARAMOPT" ]; then
-        readonly PARAMOPT="test"
-    fi
 
     return 0
 }
@@ -605,7 +531,7 @@ function cmdline {
 function main {
     cmdline $ARGS
     prepareBuild
-    buildProject "$PARAMFILE" "$PARAMOPT"
+    buildProject
 }
 
 CURRDIR=$(dirname "$0")
@@ -614,9 +540,14 @@ readonly PROGDIR=$(readlink -m "$CURRDIR")
 readonly ARGS="$@"
 readonly LOCKFILE=/home/heiko/build.lock
 
+readonly BINARY=true
+readonly KEEP=false
+readonly UPLOADFILE=true
+readonly COPRBUILD=true
+
 if [ -f $LOCKFILE ]; then
     echo "==========================================="
-    echo "Das Build-Script wird bereits ausgeführt"
+    echo "|Das Build-Script wird bereits ausgeführt |"
     echo "==========================================="
     exit 1
 fi
