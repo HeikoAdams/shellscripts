@@ -124,12 +124,12 @@ function moveLocal {
     local SPEC
 
     # Das src.rpm wird nicht benötigt und deshalb gelöscht
-    find "$HOME/rpmbuild/RPMS/" -name "*src.rpm" -maxdepth 1 -type f -exec rm -f '{}' \;
+    find "$HOME/rpmbuild/RPMS/" -name "*$PRJ*src.rpm" -maxdepth 1 -type f -exec rm -f '{}' \;
 
     DIRS=$(ls "$HOME/rpmbuild/RPMS/")
 
     for ARCHDIR in $DIRS; do
-        FILES=$(find "$HOME/rpmbuild/RPMS/" -maxdepth 1 -name "x86_64" -type f 2> /dev/null | wc -l)
+        FILES=$(find "$HOME/rpmbuild/RPMS/" -name "x86_64" -maxdepth 1  -type f 2> /dev/null | wc -l)
 
         if [ "$FILES" != "0" ]; then
             echo
@@ -252,8 +252,7 @@ function buildRPM {
           --buildsrpm \
           --spec="$HOME/rpmbuild/SPECS/$PRJ.spec" \
           --sources="$HOME/rpmbuild/SOURCES" \
-          --resultdir="$HOME/rpmbuild/SRPMS" \
-          --quiet
+          --resultdir="$HOME/rpmbuild/SRPMS"
         RC=$?
         if [ "$RC" != 0 ]; then
             notificationSend "SRPM-Build fehlgeschlagen! (Fehlercode $RC)"
@@ -275,27 +274,19 @@ function buildRPM {
     fi
 
     echo
-    if $BINARY ; then
-        BUILD="j"
-    else
-        BUILD="n"
-    fi
-
     # Das Binary bauen und paketieren
-    if [ "${BUILD,,}" == "j" ]; then
+    if $BUILDRPM ; then
         echo "Erstelle Binärpaket ..."
         if [ -n "$MOCK" ]; then
             if $KEEP ; then
                 $MOCK rebuild "$SRPM" \
                     --target="$BARCH" \
                     --dnf \
-                    --resultdir="$HOME/rpmbuild/RPMS" \
-                    --quiet
+                    --resultdir="$HOME/rpmbuild/RPMS"
             else
                 $MOCK rebuild "$SRPM" \
                     --target="$BARCH" \
-                    --dnf \
-                    --quiet
+                    --dnf
             fi
             RC=$?
             if [ "$RC" != 0 ]; then
@@ -319,6 +310,7 @@ function buildRPM {
 }
 
 function uploadSources {
+    cd $WORKDIR/SRPMS
     # FTP-Zugangsdaten auslesen sowie URL des SRPM auslesen
     if [ -s "$HOME/.config/minibuild/ftp.conf" ]; then
         source "$HOME/.config/minibuild/ftp.conf"
@@ -371,6 +363,14 @@ function buildCOPR {
     local CHROOTS
     local COUNTER=0
 
+    # FTP-Zugangsdaten auslesen sowie URL des SRPM auslesen
+    if [ -s "$HOME/.config/minibuild/ftp.conf" ]; then
+        source "$HOME/.config/minibuild/ftp.conf"
+    else
+        notificationSend "FTP-Zugangsdaten sind nicht konfiguriert"
+        exit
+    fi
+
     echo
     # COPR, übernehmen Sie
     if [ -n "$CLI" ]; then
@@ -410,44 +410,39 @@ function buildCOPR {
 
         # COPR-Build veranlassen
         if [ -n "$COPR" ]; then
-            if [[ -n "$HTTPHOST" || $UPLOADFILE == true ]]; then
-                # Nachschauen, ob ein Projekt/COPR nur für bestimmte
-                # chroots gebaut werden soll
-                if [ -s "$HOME/.config/minibuild/chroots.conf" ]; then
-                    CHROOT=$(grep "$PRJ" "$HOME/.config/minibuild/chroots.conf")
-                    if [ -z "$CHROOT" ]; then
-                        CHROOT=$(grep "$COPR" "$HOME/.config/minibuild/chroots.conf")
-                    fi
-                    CHROOTS=${CHROOT#*=}
+            # Nachschauen, ob ein Projekt/COPR nur für bestimmte
+            # chroots gebaut werden soll
+            if [ -s "$HOME/.config/minibuild/chroots.conf" ]; then
+                CHROOT=$(grep "$PRJ" "$HOME/.config/minibuild/chroots.conf")
+                if [ -z "$CHROOT" ]; then
+                    CHROOT=$(grep "$COPR" "$HOME/.config/minibuild/chroots.conf")
                 fi
+                CHROOTS=${CHROOT#*=}
+            fi
 
-                # Paket(e) bauen
-                if [ -z "$CHROOTS" ]; then
-                    echo
-                    if ! $UPLOADFILE ; then
-                        $CLI build $COPR "$SRPM"
-                    else
-                        $CLI build $COPR "http://$HTTPHOST/$HTTPPATH/$SRCRPM"
-                    fi
+            # Paket(e) bauen
+            if [ -z "$CHROOTS" ]; then
+                echo
+                if ! $UPLOADFTP ; then
+                    $CLI build $COPR "$SRPM"
                 else
-                    echo
-                    OLDIFS=$IFS
-                    IFS=","
-
-                    for CHROOT in $CHROOTS; do
-                        CMDLINE="$CMDLINE -r $CHROOT"
-                    done
-
-                    IFS=$OLDIFS
-                    if ! $UPLOADFILE ; then
-                        $CLI build $COPR $CMDLINE "$SRPM"
-                    else
-                        $CLI build $COPR $CMDLINE "http://$HTTPHOST/$HTTPPATH/$SRCRPM"
-                    fi
+                    $CLI build $COPR "http://$HTTPHOST/$HTTPPATH/$SRCRPM"
                 fi
             else
-                notificationSend "$HOME/.config/minibuild/chroots.conf ist fehlerhaft!"
-                exit
+                echo
+                OLDIFS=$IFS
+                IFS=","
+
+                for CHROOT in $CHROOTS; do
+                    CMDLINE="$CMDLINE -r $CHROOT"
+                done
+
+                IFS=$OLDIFS
+                if ! $UPLOADFTP ; then
+                    $CLI build $COPR $CMDLINE "$SRPM"
+                else
+                    $CLI build $COPR $CMDLINE "http://$HTTPHOST/$HTTPPATH/$SRCRPM"
+                fi
             fi
         fi
     else
@@ -469,7 +464,7 @@ function buildProject {
     if $KEEP ; then
         moveLocal
     fi
-    if $UPLOADFILE ; then
+    if $UPLOADFTP ; then
         uploadSources
     fi
     if $COPRBUILD ; then
@@ -502,25 +497,41 @@ function cmdline {
     #Reset the positional parameters to the short options
     eval set -- "$PARAM"
 
-    while getopts "s:o:" opt; do
+    local BUILD=false
+    local KEEPFILE=false
+    local UPLOAD=true
+    local COPR=true
+
+    while getopts "s:o:ooo" opt; do
         case $opt in
             s)
                 readonly PRJ=$OPTARG
                 ;;
             o)
                 #readonly PARAMOPT=$OPTARG
-                if [ "$OPTARG" == "nobinary" ]; then
-                    readonly BINARY=false
-                elif [ "$OPTARG" == "notest" ]; then
-                    readonly KEEP=true
-                elif [ "$OPTARG" == "noupload" ]; then
-                    readonly UPLOADFILE=false
-                elif [ "$OPTARG" == "nocopr" ]; then
-                    readonly COPRBUILD=false
+                if [ "$OPTARG" == "buildrpm" ]; then
+                    BUILD=true
+                fi
+
+                if [ "$OPTARG" == "keeprpm" ]; then
+                    KEEPFILE=true
+                fi
+
+                if [ "$OPTARG" == "noupload" ]; then
+                    UPLOAD=false
+                fi
+
+                if [ "$OPTARG" == "nocopr" ]; then
+                    COPR=false
                 fi
                 ;;
         esac
     done
+
+    readonly BUILDRPM=$BUILD
+    readonly KEEP=$KEEPFILE
+    readonly UPLOADFTP=$UPLOAD
+    readonly COPRBUILD=$COPR
 
     [[ -z $PRJ ]] \
         && echo "You must provide --spec file" && exit
@@ -539,11 +550,6 @@ readonly PROGNAME=$(basename "$0")
 readonly PROGDIR=$(readlink -m "$CURRDIR")
 readonly ARGS="$@"
 readonly LOCKFILE=/home/heiko/build.lock
-
-readonly BINARY=true
-readonly KEEP=false
-readonly UPLOADFILE=true
-readonly COPRBUILD=true
 
 if [ -f $LOCKFILE ]; then
     echo "==========================================="
