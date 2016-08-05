@@ -374,38 +374,42 @@ function buildCOPR {
     echo
     # COPR, übernehmen Sie
     if [ -n "$CLI" ]; then
-        if [ -s "$HOME/.config/minibuild/coprs.conf" ]; then
-            echo "Suche in coprs.conf nach passendem COPR ..."
-            COPRS=$(grep "$PRJ" "$HOME/.config/minibuild/coprs.conf")
-            COUNTER=$(grep -c "$PRJ" "$HOME/.config/minibuild/coprs.conf")
-            COPRS=${COPRS#*=}
+        if [ -z "$COPRNAME" ]; then
+            if [ -s "$HOME/.config/minibuild/coprs.conf" ]; then
+                echo "Suche in coprs.conf nach passendem COPR ..."
+                COPRS=$(grep "$PRJ" "$HOME/.config/minibuild/coprs.conf")
+                COUNTER=$(grep -c "$PRJ" "$HOME/.config/minibuild/coprs.conf")
+                COPRS=${COPRS#*=}
 
-            if [[ -n "$COPRS" && "$COUNTER" == 1 ]]; then
-                read -p "COPR $COPRS verwenden? (j/n) " USE
+                if [[ -n "$COPRS" && "$COUNTER" == 1 ]]; then
+                    read -p "COPR $COPRS verwenden? (j/n) " USE
 
-                if [ "${USE,,}" == "j" ]; then
-                    COPR=$COPRS
-                    echo "Verwende COPR $COPRS zum Erstellen der Pakete..."
+                    if [ "${USE,,}" == "j" ]; then
+                        COPR=$COPRS
+                        echo "Verwende COPR $COPRS zum Erstellen der Pakete..."
+                    fi
                 fi
             fi
-        fi
 
-        # Kein passendes COPR gefunden -> das COPR CLI befragen
-        if [[ -z "$COPR" || $COUNTER != 1 ]]; then
-            echo "Suche nach passendem COPR ..."
-            for COPRS in $($CLI list | grep Name | awk '{print $2}' | grep "$PRJ"); do
-                read -p "COPR $COPRS verwenden? (j/n) " USE
+            # Kein passendes COPR gefunden -> das COPR CLI befragen
+            if [[ -z "$COPR" || $COUNTER != 1 ]]; then
+                echo "Suche nach passendem COPR ..."
+                for COPRS in $($CLI list | grep Name | awk '{print $2}' | grep "$PRJ"); do
+                    read -p "COPR $COPRS verwenden? (j/n) " USE
 
-                if [ "${USE,,}" == "j" ]; then
-                    COPR=$COPRS
-                    break
-                fi
-            done
-        fi
+                    if [ "${USE,,}" == "j" ]; then
+                        COPR=$COPRS
+                        break
+                    fi
+                done
+            fi
 
-        # Noch immer kein passendes COPR gefunden -> User fragen
-        if [ -z "$COPR" ]; then
-            read -p "Name des zu verwendenden COPRs: " COPR
+            # Noch immer kein passendes COPR gefunden -> User fragen
+            if [ -z "$COPR" ]; then
+                read -p "Name des zu verwendenden COPRs: " COPR
+            fi
+        else
+            COPR=$COPRNAME
         fi
 
         # COPR-Build veranlassen
@@ -483,9 +487,17 @@ function cmdline {
         local DELIM=""
         case "$ARG" in
             #translate --gnu-long-options to -g (short options)
-            --spec)         PARAM="${PARAM}-s "
+            --spec)     PARAM="${PARAM}-s "
                 ;;
-            --option)       PARAM="${PARAM}-o "
+            --build)    PARAM="${PARAM}-b " # Build binary rpm for testing local
+                ;;
+            --keep)     PARAM="${PARAM}-k " # keep that local build binary rpm
+                ;;
+            --upload)   PARAM="${PARAM}-u " # upload srpm to ftp space
+                ;;
+            --copr)     PARAM="${PARAM}-c " # use copr for building binary rpms
+                ;;
+            --name)     PARAM="${PARAM}-n " # name of the copr to use for building binary rpms
                 ;;
             #pass through anything else
             *) [[ "${ARG:0:1}" == "-" ]] || DELIM="\""
@@ -501,29 +513,55 @@ function cmdline {
     local KEEPFILE=false
     local UPLOAD=true
     local COPR=true
+    local NAME
 
-    while getopts "s:o:ooo" opt; do
+    while getopts ":s:b:k:u:c:" opt; do
         case $opt in
             s)
                 readonly PRJ=$OPTARG
                 ;;
-            o)
+            b)
                 #readonly PARAMOPT=$OPTARG
-                if [ "$OPTARG" == "buildrpm" ]; then
+                if [ "$OPTARG" == "no" ]; then
+                    BUILD=false
+                elif [ "$OPTARG" == "yes" ]; then
                     BUILD=true
                 fi
-
-                if [ "$OPTARG" == "keeprpm" ]; then
+                ;;
+            k)
+                #readonly PARAMOPT=$OPTARG
+                if [ "$OPTARG" == "no" ]; then
+                    KEEPFILE=false
+                elif [ "$OPTARG" == "yes" ]; then
                     KEEPFILE=true
                 fi
-
-                if [ "$OPTARG" == "noupload" ]; then
+                ;;
+            u)
+                #readonly PARAMOPT=$OPTARG
+                if [ "$OPTARG" == "no" ]; then
                     UPLOAD=false
+                elif [ "$OPTARG" == "yes" ]; then
+                    UPLOAD=true
                 fi
-
-                if [ "$OPTARG" == "nocopr" ]; then
+                ;;
+            c)
+                #readonly PARAMOPT=$OPTARG
+                if [ "$OPTARG" == "no" ]; then
                     COPR=false
+                elif [ "$OPTARG" == "yes" ]; then
+                    COPR=true
                 fi
+                ;;
+            n)
+                if [ "$OPTARG" -n ]; then
+                    NAME=$OPTARG
+            \?)
+                echo "ungültige option: -$OPTARG" >&2
+                exit 1
+                ;;
+            :)
+                echo "Option -$OPTARG benötigt ein Argument." >&2
+                exit 1
                 ;;
         esac
     done
@@ -532,6 +570,7 @@ function cmdline {
     readonly KEEP=$KEEPFILE
     readonly UPLOADFTP=$UPLOAD
     readonly COPRBUILD=$COPR
+    readonly COPRNAME=$NAME
 
     [[ -z $PRJ ]] \
         && echo "You must provide --spec file" && exit
