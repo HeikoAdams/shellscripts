@@ -515,7 +515,7 @@ function cmdline {
     local COPR=true
     local NAME
 
-    while getopts ":s:b:k:u:c:" opt; do
+    while getopts ":s:b:k:u:c:n:" opt; do
         case $opt in
             s)
                 readonly PRJ=$OPTARG
@@ -553,8 +553,10 @@ function cmdline {
                 fi
                 ;;
             n)
-                if [ "$OPTARG" -n ]; then
+                if [ -n "$OPTARG" ]; then
                     NAME=$OPTARG
+                fi
+                ;;
             \?)
                 echo "ungültige option: -$OPTARG" >&2
                 exit 1
