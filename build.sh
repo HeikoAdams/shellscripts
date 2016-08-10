@@ -273,9 +273,9 @@ function buildRPM {
         exit
     fi
 
-    echo
     # Das Binary bauen und paketieren
     if $BUILDRPM ; then
+        echo
         echo "Erstelle Binärpaket ..."
         if [ -n "$MOCK" ]; then
             if $KEEP ; then
@@ -319,12 +319,10 @@ function uploadSources {
         exit
     fi
 
-    echo
-
     # Das fertige SRPM auf den FTP-Server hochladen, damit COPR
     # es verwenden kann
     if [ -n "$FTPHOST" ]; then
-
+        echo
         echo "lade $SRPM auf FTP-Server hoch ..."
         if [ -n "$LFTP" ]; then
             local FTPURL="ftp://$FTPUSER:$FTPPWD@$FTPHOST"
@@ -371,11 +369,11 @@ function buildCOPR {
         exit
     fi
 
-    echo
     # COPR, übernehmen Sie
     if [ -n "$CLI" ]; then
         if [ -z "$COPRNAME" ]; then
             if [ -s "$HOME/.config/minibuild/coprs.conf" ]; then
+                echo
                 echo "Suche in coprs.conf nach passendem COPR ..."
                 COPRS=$(grep "$PRJ" "$HOME/.config/minibuild/coprs.conf")
                 COUNTER=$(grep -c "$PRJ" "$HOME/.config/minibuild/coprs.conf")
