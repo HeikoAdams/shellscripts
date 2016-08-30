@@ -92,11 +92,12 @@ function initVars {
     readonly VERSION=$(grep Version: SPECS/"$PRJ".spec | head -1 | awk '{print $2}');
     readonly COMMIT=$(grep commit SPECS/"$PRJ".spec | head -1 | awk '{print $3}');
     readonly BZR_REV=$(grep bzr_rev SPECS/"$PRJ".spec | head -1 | awk '{print $3}');
+    readonly CPU=$(uname -m)
 
     # Wenn im SPEC keine BuildArch angegeben ist, für die eigene Prozessor-
     # Architektur bauen
     if [ -z "$ARCH" ]; then
-        readonly BARCH=$(uname -m)
+        readonly BARCH=$CPU
     else
         readonly BARCH=$ARCH
     fi
@@ -129,7 +130,7 @@ function moveLocal {
     DIRS=$(ls "$HOME/rpmbuild/RPMS/")
 
     for ARCHDIR in $DIRS; do
-        FILES=$(find "$HOME/rpmbuild/RPMS/" -name "x86_64" -maxdepth 1  -type f 2> /dev/null | wc -l)
+        FILES=$(find "$HOME/rpmbuild/RPMS/" -name "$CPU" -maxdepth 1  -type f 2> /dev/null | wc -l)
 
         if [ "$FILES" != "0" ]; then
             echo
@@ -147,8 +148,6 @@ function moveLocal {
                 echo "Prüfe $PRJ Pakete mit rpmlint"
                 if [ "$COUNTER" == 1 ]; then
                     $RPMLINT "$SRPM" "$RPMFILE" "$SPEC"
-                else
-                    $RPMLINT "$SRPM" "$SPEC"
                 fi
             else
                 echo "rpmlint ist nicht installiert"
@@ -228,6 +227,7 @@ function buildRPM {
     local BUILD
     local SOURCEFILE
     local RC
+    local RELEASE
 
     echo
     echo "lösche vorhandene SRPMs ..."
@@ -273,6 +273,11 @@ function buildRPM {
         exit
     fi
 
+    echo
+    echo "Prüfe $PRJ SRCRPM-Paket mit rpmlint"
+    SPEC=$(readlink -f "./SPECS/$PRJ.spec")
+    $RPMLINT "$SRPM" "$SPEC"
+
     # Das Binary bauen und paketieren
     if $BUILDRPM ; then
         echo
@@ -295,7 +300,10 @@ function buildRPM {
             else
                 if [ "$KEEP" != true ]; then
                     echo "Bereinige mock chroot ..."
-                    $MOCK --clean --quiet
+                    RELEASE=$(grep VERSION_ID /etc/os-release)
+                    RELEASE=${RELEASE#*=}
+                    ROOT="fedora-$RELEASE-$CPU"
+                    $MOCK -r $ROOT --scrub=all
                 fi
             fi
         else
