@@ -74,13 +74,13 @@ function initVars {
     # benötigte Variable befüllen
 
     # benötigte Programme suchen
-    readonly RPMLINT=$(whereis rpmlint | awk '{print $2}')
-    readonly NOTIFY=$(whereis notify-send | awk '{print $2}')
-    readonly WGET=$(whereis wget | awk '{print $2}')
-    readonly MOCK=$(whereis mock | awk '{print $2}')
-    readonly CURL=$(whereis curl | awk '{print $2}')
-    readonly CLI=$(whereis copr-cli | awk '{print $2}')
-    readonly LFTP=$(whereis lftp | awk '{print $2}')
+    readonly RPMLINT=$(command -v rpmlint)
+    readonly NOTIFY=$(command -v notify-send)
+    readonly WGET=$(command -v wget)
+    readonly MOCK=$(command -v mock)
+    readonly CURL=$(command -v curl)
+    readonly CLI=$(command -v copr-cli)
+    readonly LFTP=$(command -v lftp)
 
     # Paketspezifische Variablen füllen
     readonly ARCH=$(grep BuildArch: SPECS/"$PRJ".spec | awk '{print $2}');
@@ -303,7 +303,7 @@ function buildRPM {
                     RELEASE=$(grep VERSION_ID /etc/os-release)
                     RELEASE=${RELEASE#*=}
                     ROOT="fedora-$RELEASE-$CPU"
-                    $MOCK -r $ROOT --scrub=all
+                    $MOCK -r $ROOT --clean
                 fi
             fi
         else
