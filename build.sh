@@ -81,6 +81,7 @@ function initVars {
     readonly CURL=$(command -v curl)
     readonly CLI=$(command -v copr-cli)
     readonly LFTP=$(command -v lftp)
+    readonly SYSTEMD=$(command -v systemd-nspawn)
 
     # Paketspezifische Variablen füllen
     readonly ARCH=$(grep BuildArch: SPECS/"$PRJ".spec | awk '{print $2}');
@@ -93,6 +94,7 @@ function initVars {
     readonly COMMIT=$(grep commit SPECS/"$PRJ".spec | head -1 | awk '{print $3}');
     readonly BZR_REV=$(grep bzr_rev SPECS/"$PRJ".spec | head -1 | awk '{print $3}');
     readonly CPU=$(uname -m)
+    readonly MOCKVER=$(mock --version)
 
     # Wenn im SPEC keine BuildArch angegeben ist, für die eigene Prozessor-
     # Architektur bauen
@@ -228,6 +230,11 @@ function buildRPM {
     local SOURCEFILE
     local RC
     local RELEASE
+    local NSPAWN="--old-chroot"
+
+    if [ -n "$SYSTEMD" ] && [ "$MOCKVER" \> "1.2.19" ] ; then
+        NSPAWN="--new-chroot"
+    fi
 
     echo
     echo "lösche vorhandene SRPMs ..."
@@ -238,6 +245,14 @@ function buildRPM {
 
     echo "Räume Build-Verzeichnisse auf ..."
     DIRS=$(find "$HOME/rpmbuild" -name "BUILD*" -type d)
+
+    if [ -n "$MOCK" ]; then
+        echo "Bereinige mock chroot ..."
+        RELEASE=$(grep VERSION_ID /etc/os-release)
+        RELEASE=${RELEASE#*=}
+        ROOT="fedora-$RELEASE-$CPU"
+        $MOCK -r $ROOT $NSPAWN --clean
+    fi
 
     for DIR in $DIRS ; do
         rm -rf ${DIR:?}/*
@@ -252,7 +267,8 @@ function buildRPM {
           --buildsrpm \
           --spec="$HOME/rpmbuild/SPECS/$PRJ.spec" \
           --sources="$HOME/rpmbuild/SOURCES" \
-          --resultdir="$HOME/rpmbuild/SRPMS"
+          --resultdir="$HOME/rpmbuild/SRPMS" \
+          $NSPAWN
         RC=$?
         if [ "$RC" != 0 ]; then
             notificationSend "SRPM-Build fehlgeschlagen! (Fehlercode $RC)"
@@ -287,24 +303,18 @@ function buildRPM {
                 $MOCK rebuild "$SRPM" \
                     --target="$BARCH" \
                     --dnf \
-                    --resultdir="$HOME/rpmbuild/RPMS"
+                    --resultdir="$HOME/rpmbuild/RPMS" \
+                    $NSPAWN
             else
                 $MOCK rebuild "$SRPM" \
                     --target="$BARCH" \
-                    --dnf
+                    --dnf \
+                    $NSPAWN
             fi
             RC=$?
             if [ "$RC" != 0 ]; then
                 notificationSend "Build fehlgeschlagen! (Fehlercode $RC)"
                 exit
-            else
-                if [ "$KEEP" != true ]; then
-                    echo "Bereinige mock chroot ..."
-                    RELEASE=$(grep VERSION_ID /etc/os-release)
-                    RELEASE=${RELEASE#*=}
-                    ROOT="fedora-$RELEASE-$CPU"
-                    $MOCK -r $ROOT --clean
-                fi
             fi
         else
             notificationSend "mock ist nicht installiert"
