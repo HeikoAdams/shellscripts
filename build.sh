@@ -56,6 +56,11 @@ function prepareBuild {
     fi
 }
 
+function debugMsg {
+    echo
+    echo """$1"""
+}
+
 function notificationSend {
     local MSG=$1
     local TITLE=$2
@@ -66,8 +71,7 @@ function notificationSend {
 
     $NOTIFY """$TITLE""" """$MSG"""
 
-    echo
-    echo """$MSG"""
+    debugMsg $MSG
 }
 
 function initVars {
@@ -115,6 +119,13 @@ function initVars {
     # Wenn die Quellen aus Git kommen, auch noch den Git-Hash berechnen
     if [ -n "$COMMIT" ]; then
         readonly HASH=${COMMIT:0:7};
+    fi
+
+    if [ -n "$SYSTEMD" ] && [ "$MOCKVER" \> "1.2.19" ] ; then
+        readonly NSPAWN="--new-chroot"
+    else
+        debugMsg "Mock version $MOCKVER ist zu alt für systemd-nspawn, nutze chroot!"
+        readonly NSPAWN="--old-chroot"
     fi
 }
 
@@ -223,18 +234,25 @@ function downloadSources {
     fi
 }
 
+function clean_chroot {
+    local RELEASE
+    local ROOT
+
+    if [ -n "$MOCK" ]; then
+        RELEASE=$(grep VERSION_ID /etc/os-release)
+        RELEASE=${RELEASE#*=}
+        ROOT="fedora-$RELEASE-$CPU"
+        echo "Bereinige mock chroot $ROOT ..."
+        $MOCK -r $ROOT $NSPAWN --clean --quiet
+    fi
+}
+
 function buildRPM {
     local DIR
     local DIRS
     local BUILD
     local SOURCEFILE
     local RC
-    local RELEASE
-    local NSPAWN="--old-chroot"
-
-    if [ -n "$SYSTEMD" ] && [ "$MOCKVER" \> "1.2.19" ] ; then
-        NSPAWN="--new-chroot"
-    fi
 
     echo
     echo "lösche vorhandene SRPMs ..."
@@ -246,13 +264,7 @@ function buildRPM {
     echo "Räume Build-Verzeichnisse auf ..."
     DIRS=$(find "$HOME/rpmbuild" -name "BUILD*" -type d)
 
-    if [ -n "$MOCK" ]; then
-        echo "Bereinige mock chroot ..."
-        RELEASE=$(grep VERSION_ID /etc/os-release)
-        RELEASE=${RELEASE#*=}
-        ROOT="fedora-$RELEASE-$CPU"
-        $MOCK -r $ROOT $NSPAWN --clean
-    fi
+    clean_chroot
 
     for DIR in $DIRS ; do
         rm -rf ${DIR:?}/*
@@ -304,11 +316,13 @@ function buildRPM {
                     --target="$BARCH" \
                     --dnf \
                     --resultdir="$HOME/rpmbuild/RPMS" \
+                    --cleanup-after \
                     $NSPAWN
             else
                 $MOCK rebuild "$SRPM" \
                     --target="$BARCH" \
                     --dnf \
+                    --cleanup-after \
                     $NSPAWN
             fi
             RC=$?
@@ -444,9 +458,9 @@ function buildCOPR {
             if [ -z "$CHROOTS" ]; then
                 echo
                 if ! $UPLOADFTP ; then
-                    $CLI build $COPR "$SRPM"
+                    $CLI build "$COPR" "$SRPM"
                 else
-                    $CLI build $COPR "http://$HTTPHOST/$HTTPPATH/$SRCRPM"
+                    $CLI build "$COPR" "http://$HTTPHOST/$HTTPPATH/$SRCRPM"
                 fi
             else
                 echo
@@ -459,9 +473,9 @@ function buildCOPR {
 
                 IFS=$OLDIFS
                 if ! $UPLOADFTP ; then
-                    $CLI build $COPR $CMDLINE "$SRPM"
+                    $CLI build "$COPR" $CMDLINE "$SRPM"
                 else
-                    $CLI build $COPR $CMDLINE "http://$HTTPHOST/$HTTPPATH/$SRCRPM"
+                    $CLI build "$COPR" $CMDLINE "http://$HTTPHOST/$HTTPPATH/$SRCRPM"
                 fi
             fi
         fi
