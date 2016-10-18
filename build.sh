@@ -620,20 +620,20 @@ CURRDIR=$(dirname "$0")
 readonly PROGNAME=$(basename "$0")
 readonly PROGDIR=$(readlink -m "$CURRDIR")
 readonly ARGS="$@"
-readonly LOCKFILE=/home/heiko/build.lock
-
-if [ -f $LOCKFILE ]; then
-    echo "==========================================="
-    echo "|Das Build-Script wird bereits ausgeführt |"
-    echo "==========================================="
-    exit 1
-fi
-echo "$ARGS" > $LOCKFILE
-trap -- "rm $LOCKFILE" EXIT
+#readonly LOCKFILE=/home/heiko/build.lock
+#
+#if [ -f $LOCKFILE ]; then
+#    echo "==========================================="
+#    echo "|Das Build-Script wird bereits ausgeführt |"
+#    echo "==========================================="
+#    exit 1
+#fi
+#echo "$ARGS" > $LOCKFILE
+#trap -- "rm $LOCKFILE" EXIT
 
 main
 cd ..
 
-rm $LOCKFILE
-trap -- EXIT
+#rm $LOCKFILE
+#trap -- EXIT
 exit 0
