@@ -79,6 +79,7 @@ function initVars {
 
     # benötigte Programme suchen
     readonly RPMLINT=$(command -v rpmlint)
+    readonly RPMDEPLINT=$(command -v rpmdeplint)
     readonly NOTIFY=$(command -v notify-send)
     readonly WGET=$(command -v wget)
     readonly MOCK=$(command -v mock)
@@ -97,6 +98,8 @@ function initVars {
     readonly VERSION=$(grep Version: SPECS/"$PRJ".spec | head -1 | awk '{print $2}');
     readonly COMMIT=$(grep commit SPECS/"$PRJ".spec | head -1 | awk '{print $3}');
     readonly BZR_REV=$(grep bzr_rev SPECS/"$PRJ".spec | head -1 | awk '{print $3}');
+    
+    # sonstige Variable befüllen
     readonly CPU=$(uname -m)
     readonly MOCKVER=$(mock --version)
 
@@ -121,6 +124,7 @@ function initVars {
         readonly HASH=${COMMIT:0:7};
     fi
 
+    # Wenn mock > 1.2.19 ist, systemd-nspawn verwenden, sofern installiert
     if [ -n "$SYSTEMD" ] && [ "$MOCKVER" \> "1.2.19" ] ; then
         readonly NSPAWN="--new-chroot"
     else
@@ -138,12 +142,12 @@ function moveLocal {
     local SPEC
 
     # Das src.rpm wird nicht benötigt und deshalb gelöscht
-    find "$HOME/rpmbuild/RPMS/" -name "*$PRJ*src.rpm" -maxdepth 1 -type f -exec rm -f '{}' \;
+    find "$HOME/rpmbuild/RPMS/" -maxdepth 1 -name "*$PRJ*src.rpm" -type f -exec rm -f '{}' \;
 
     DIRS=$(ls "$HOME/rpmbuild/RPMS/")
 
     for ARCHDIR in $DIRS; do
-        FILES=$(find "$HOME/rpmbuild/RPMS/" -name "$CPU" -maxdepth 1  -type f 2> /dev/null | wc -l)
+        FILES=$(find "$HOME/rpmbuild/RPMS/" -maxdepth 1 -name "$CPU" -type f 2> /dev/null | wc -l)
 
         if [ "$FILES" != "0" ]; then
             echo
@@ -236,18 +240,17 @@ function downloadSources {
 
 function clean_chroot {
     local RELEASE
-    local ROOT
 
     if [ -n "$MOCK" ]; then
         RELEASE=$(grep VERSION_ID /etc/os-release)
         RELEASE=${RELEASE#*=}
-        ROOT="fedora-$RELEASE-$CPU"
+        readonly ROOT="fedora-$RELEASE-$CPU"
         echo "Bereinige mock chroot $ROOT ..."
         $MOCK -r $ROOT $NSPAWN --clean --quiet
     fi
 }
 
-function buildRPM {
+function buildRPMs {
     local DIR
     local DIRS
     local BUILD
@@ -275,13 +278,15 @@ function buildRPM {
 
     # SRPM erstellen
     if [ -n "$MOCK" ]; then
-        $MOCK --dnf \
+        $MOCK -r "$ROOT" \
+          --dnf \
           --buildsrpm \
           --spec="$HOME/rpmbuild/SPECS/$PRJ.spec" \
           --sources="$HOME/rpmbuild/SOURCES" \
           --resultdir="$HOME/rpmbuild/SRPMS" \
           $NSPAWN
         RC=$?
+
         if [ "$RC" != 0 ]; then
             notificationSend "SRPM-Build fehlgeschlagen! (Fehlercode $RC)"
             exit
@@ -302,30 +307,30 @@ function buildRPM {
     fi
 
     echo
-    echo "Prüfe $PRJ SRCRPM-Paket mit rpmlint"
+    echo "Prüfe $PRJ Sources-Paket mit rpmlint"
     SPEC=$(readlink -f "./SPECS/$PRJ.spec")
     $RPMLINT "$SRPM" "$SPEC"
+
+    if [ -n "$RPMDEPLINT" ]; then
+        echo
+        echo "Prüfe $PRJ Sources-Paket mit rpmdeplint"
+        $RPMDEPLINT check "$SRPM"
+    fi
 
     # Das Binary bauen und paketieren
     if $BUILDRPM ; then
         echo
         echo "Erstelle Binärpaket ..."
         if [ -n "$MOCK" ]; then
-            if $KEEP ; then
-                $MOCK rebuild "$SRPM" \
-                    --target="$BARCH" \
-                    --dnf \
-                    --resultdir="$HOME/rpmbuild/RPMS" \
-                    --cleanup-after \
-                    $NSPAWN
-            else
-                $MOCK rebuild "$SRPM" \
-                    --target="$BARCH" \
-                    --dnf \
-                    --cleanup-after \
-                    $NSPAWN
-            fi
+            $MOCK -r "$ROOT" \
+                --rebuild "$SRPM" \
+                --target="$BARCH" \
+                --dnf \
+                --resultdir="$HOME/rpmbuild/RPMS/$BARCH" \
+                --cleanup-after \
+                $NSPAWN
             RC=$?
+
             if [ "$RC" != 0 ]; then
                 notificationSend "Build fehlgeschlagen! (Fehlercode $RC)"
                 exit
@@ -494,8 +499,8 @@ function buildProject {
     initVars
     initConfig
     downloadSources
-    buildRPM
-    if $KEEP ; then
+    buildRPMs
+    if $BUILDRPM ; then
         moveLocal
     fi
     if $UPLOADFTP ; then
@@ -521,8 +526,6 @@ function cmdline {
                 ;;
             --build)    PARAM="${PARAM}-b " # Build binary rpm for testing local
                 ;;
-            --keep)     PARAM="${PARAM}-k " # keep that local build binary rpm
-                ;;
             --upload)   PARAM="${PARAM}-u " # upload srpm to ftp space
                 ;;
             --copr)     PARAM="${PARAM}-c " # use copr for building binary rpms
@@ -540,34 +543,23 @@ function cmdline {
     eval set -- "$PARAM"
 
     local BUILD=false
-    local KEEPFILE=false
     local UPLOAD=true
     local COPR=true
     local NAME
 
-    while getopts ":s:b:k:u:c:n:" opt; do
+    while getopts ":s:b:u:c:n:" opt; do
         case $opt in
             s)
                 readonly PRJ=$OPTARG
                 ;;
             b)
-                #readonly PARAMOPT=$OPTARG
                 if [ "$OPTARG" == "no" ]; then
                     BUILD=false
                 elif [ "$OPTARG" == "yes" ]; then
                     BUILD=true
                 fi
                 ;;
-            k)
-                #readonly PARAMOPT=$OPTARG
-                if [ "$OPTARG" == "no" ]; then
-                    KEEPFILE=false
-                elif [ "$OPTARG" == "yes" ]; then
-                    KEEPFILE=true
-                fi
-                ;;
             u)
-                #readonly PARAMOPT=$OPTARG
                 if [ "$OPTARG" == "no" ]; then
                     UPLOAD=false
                 elif [ "$OPTARG" == "yes" ]; then
@@ -575,7 +567,6 @@ function cmdline {
                 fi
                 ;;
             c)
-                #readonly PARAMOPT=$OPTARG
                 if [ "$OPTARG" == "no" ]; then
                     COPR=false
                 elif [ "$OPTARG" == "yes" ]; then
@@ -599,7 +590,6 @@ function cmdline {
     done
 
     readonly BUILDRPM=$BUILD
-    readonly KEEP=$KEEPFILE
     readonly UPLOADFTP=$UPLOAD
     readonly COPRBUILD=$COPR
     readonly COPRNAME=$NAME
@@ -620,20 +610,8 @@ CURRDIR=$(dirname "$0")
 readonly PROGNAME=$(basename "$0")
 readonly PROGDIR=$(readlink -m "$CURRDIR")
 readonly ARGS="$@"
-#readonly LOCKFILE=/home/heiko/build.lock
-#
-#if [ -f $LOCKFILE ]; then
-#    echo "==========================================="
-#    echo "|Das Build-Script wird bereits ausgeführt |"
-#    echo "==========================================="
-#    exit 1
-#fi
-#echo "$ARGS" > $LOCKFILE
-#trap -- "rm $LOCKFILE" EXIT
 
 main
 cd ..
 
-#rm $LOCKFILE
-#trap -- EXIT
 exit 0
