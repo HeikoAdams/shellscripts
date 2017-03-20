@@ -78,6 +78,7 @@ function initVars {
     # benötigte Variable befüllen
 
     # benötigte Programme suchen
+    readonly RPMBUILD=$(command -v rpmbuild)
     readonly RPMLINT=$(command -v rpmlint)
     readonly RPMDEPLINT=$(command -v rpmdeplint)
     readonly NOTIFY=$(command -v notify-send)
@@ -225,7 +226,7 @@ function downloadSources {
 
         if [ -n "$WGET" ]; then
             echo "Lade Source-Archiv $URL herunter ..."
-            $WGET "$URL" --show-progress -q -O "SOURCES/$DEST"
+            $WGET "$URL" --quiet --show-progress -O "SOURCES/$DEST"
             RC=$?
             if [ $RC != 0 ]; then
                 notificationSend "Download fehlgeschlagen! (Fehlercode $RC)"
@@ -259,7 +260,8 @@ function buildRPMs {
 
     echo
     echo "lösche vorhandene SRPMs ..."
-    find "$HOME/rpmbuild/SRPMS/" -name "*$PRJ*" -type f -exec rm -f '{}' \;
+    #find "$HOME/rpmbuild/SRPMS/" -name "*$PRJ*" -type f -exec rm -f '{}' \;
+	find "$HOME/rpmbuild/SRPMS/" -name "*src.rpm" -type f -exec rm -f '{}' \;
 
     echo "lösche alte Logs ..."
     find . -name "*log" -type f -exec rm -f '{}' \;
@@ -277,22 +279,32 @@ function buildRPMs {
     echo -e "Erstelle $PRJ Source-Paket"
 
     # SRPM erstellen
-    if [ -n "$MOCK" ]; then
-        $MOCK -r "$ROOT" \
-          --dnf \
-          --buildsrpm \
-          --spec="$HOME/rpmbuild/SPECS/$PRJ.spec" \
-          --sources="$HOME/rpmbuild/SOURCES" \
-          --resultdir="$HOME/rpmbuild/SRPMS" \
-          $NSPAWN
-        RC=$?
-
-        if [ "$RC" != 0 ]; then
-            notificationSend "SRPM-Build fehlgeschlagen! (Fehlercode $RC)"
+    if $USERPMBUILD ; then
+        if [ -n "$RPMBUILD" ]; then
+            $RPMBUILD -bs "$HOME/rpmbuild/SPECS/$PRJ.spec"
+            RC=$?
+        else
+            notificationSend "rpmbuild ist nicht installiert!"
             exit
         fi
     else
-        notificationSend "mock ist nicht installiert!"
+        if [ -n "$MOCK" ]; then
+            $MOCK -r "$ROOT" \
+              --dnf \
+              --buildsrpm \
+              --spec="$HOME/rpmbuild/SPECS/$PRJ.spec" \
+              --sources="$HOME/rpmbuild/SOURCES" \
+              --resultdir="$HOME/rpmbuild/SRPMS" \
+              $NSPAWN
+            RC=$?
+        else
+            notificationSend "mock ist nicht installiert!"
+            exit
+        fi
+    fi
+
+    if [ "$RC" != 0 ]; then
+        notificationSend "SRPM-Build fehlgeschlagen! (Fehlercode $RC)"
         exit
     fi
 
@@ -532,6 +544,8 @@ function cmdline {
                 ;;
             --name)     PARAM="${PARAM}-n " # name of the copr to use for building binary rpms
                 ;;
+            --rpmbuild) PARAM="${PARAM}-r " # use rpmbuild for building srpms
+                ;;
             #pass through anything else
             *) [[ "${ARG:0:1}" == "-" ]] || DELIM="\""
                 PARAM="${PARAM}${DELIM}${ARG}${DELIM} "
@@ -545,9 +559,10 @@ function cmdline {
     local BUILD=false
     local UPLOAD=true
     local COPR=true
+    local SRPMRPMBUILD=true
     local NAME
 
-    while getopts ":s:b:u:c:n:" opt; do
+    while getopts ":s:b:u:c:n:r:" opt; do
         case $opt in
             s)
                 readonly PRJ=$OPTARG
@@ -573,6 +588,13 @@ function cmdline {
                     COPR=true
                 fi
                 ;;
+            r)
+                if [ "$OPTARG" == "no" ]; then
+                    SRPMRPMBUILD=false
+                elif [ "$OPTARG" == "yes" ]; then
+                    SRPMRPMBUILD=true
+                fi
+                ;;
             n)
                 if [ -n "$OPTARG" ]; then
                     NAME=$OPTARG
@@ -593,6 +615,7 @@ function cmdline {
     readonly UPLOADFTP=$UPLOAD
     readonly COPRBUILD=$COPR
     readonly COPRNAME=$NAME
+    readonly USERPMBUILD=$SRPMRPMBUILD
 
     [[ -z $PRJ ]] \
         && echo "You must provide --spec file" && exit
