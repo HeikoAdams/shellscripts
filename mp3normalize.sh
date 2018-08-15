@@ -38,7 +38,7 @@ for DIR in ${MP3DIR[*]}; do
 
 	# gain files in current directory
 	for MP3 in $FILES; do
-		"$GAIN" -c -r -k -d 2 "$MP3"|grep Applying >> $LOGFILE;
+		"$GAIN" -t -c -r -k -d 2 "$MP3"|grep Applying >> $LOGFILE;
 	done;
 done;
 
