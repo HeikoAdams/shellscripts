@@ -23,24 +23,24 @@
 function initConfig {
     if [ ! -d "$HOME/.config/minibuild/" ]; then
         mkdir -p "$HOME"/.config/minibuild/
-        notificationSend "Konfigurationsverzeichnis erstellt! Bitte überprüfen Sie die minibuild-Konfiguration!"
+        notificationSend "Config directory created! Please check the minibuild-configuration!"
         exit -1
     else
         if [ ! -e "$HOME/.config/minibuild/chroots.conf" ]; then
             touch "$HOME"/.config/minibuild/chroots.conf
-            notificationSend "Konfigurationsdatei chroots.conf erstellt!"
+            notificationSend "chroots.conf created!"
             exit -1
         fi
 
         if [ ! -e "$HOME/.config/minibuild/coprs.conf" ]; then
             touch "$HOME"/.config/minibuild/coprs.conf
-            notificationSend "Konfigurationsdatei coprs.conf erstellt!"
+            notificationSend "coprs.conf created!"
             exit -1
         fi
 
         if [ ! -e "$HOME/.config/minibuild/ftp.conf" ]; then
             touch "$HOME"/.config/minibuild/ftp.conf
-            notificationSend "Konfigurationsdatei ftp.conf erstellt!"
+            notificationSend "ftp.conf created!"
             exit -1
         fi
     fi
@@ -92,6 +92,7 @@ function initVars {
     # Paketspezifische Variablen füllen
     readonly ARCH=$(grep BuildArch: SPECS/"$PRJ".spec | awk '{print $2}');
     readonly SRC=$(grep Source: SPECS/"$PRJ".spec | awk '{print $2}');
+    readonly PRJURL=$(grep URL: SPECS/"$PRJ".spec | awk '{print $2}');
     readonly NAME=$(grep Name: SPECS/"$PRJ".spec | head -1 | awk '{print $2}');
     readonly PRJNAME=$(grep prjname SPECS/"$PRJ".spec | head -1 | awk '{print $3}');
     readonly PKGNAME=$(grep pkgname SPECS/"$PRJ".spec | head -1 | awk '{print $3}');
@@ -129,7 +130,7 @@ function initVars {
     if [ -n "$SYSTEMD" ] && [ "$MOCKVER" \> "1.2.19" ] ; then
         readonly NSPAWN="--new-chroot"
     else
-        debugMsg "Mock version $MOCKVER ist zu alt für systemd-nspawn, nutze chroot!"
+        debugMsg "Mock version $MOCKVER is too old for systemd-nspawn, using chroot!"
         readonly NSPAWN="--old-chroot"
     fi
 }
@@ -152,10 +153,10 @@ function moveLocal {
 
         if [ "$FILES" != "0" ]; then
             echo
-            echo "lösche vorhandene RPMs aus $HOME/rpmbuild/RPMS/$ARCHDIR/"
+            echo "removing existing RPMs from $HOME/rpmbuild/RPMS/$ARCHDIR/"
             find "$HOME/rpmbuild/RPMS/$ARCHDIR/" -name "*$PRJ*" -type f -exec rm -f '{}' \;
 
-            echo "kopiere RPMs nach $HOME/rpmbuild/RPMS/$ARCHDIR/"
+            echo "copying RPMs to $HOME/rpmbuild/RPMS/$ARCHDIR/"
             mv -f "$HOME/rpmbuild/RPMS/*$ARCHDIR*.rpm $HOME/rpmbuild/RPMS/$ARCHDIR/"
 
             if [ -n "$RPMLINT" ]; then
@@ -163,12 +164,12 @@ function moveLocal {
                 COUNTER=$(find . -path "./RPMS/$ARCHDIR/$NAME-$VERSION*.rpm" -type f | wc -l)
                 SPEC=$(readlink -f "./SPECS/$PRJ.spec")
 
-                echo "Prüfe $PRJ Pakete mit rpmlint"
+                echo "Valid $PRJ Pakete mit rpmlint"
                 if [ "$COUNTER" == 1 ]; then
                     $RPMLINT "$SRPM" "$RPMFILE" "$SPEC"
                 fi
             else
-                echo "rpmlint ist nicht installiert"
+                echo "rpmlint is missing"
             fi
         fi
     done
@@ -180,6 +181,8 @@ function downloadSources {
     local DEST
 
     # URL für den Download der Sourcen zusammenbauen
+    MATCH="%{url}"
+    URL=${URL//$MATCH/$PRJURL}
     MATCH="%{name}"
     URL=${SOURCE//$MATCH/$NAME}
     MATCH="%{version}"
@@ -220,34 +223,30 @@ function downloadSources {
 
     # Wenn eine URL als Source angegeben ist, die Datei herunterladen
     if [ "${URL:0:3}" == "ftp" ] || [ "${URL:0:4}" == "http" ]; then
-        echo "lösche alte Sourcen ..."
-        find "$HOME/rpmbuild/SOURCES/" -name "*$PRJ*.tar.*" -type f -exec rm -f '{}' \;
-        find "$HOME/rpmbuild/SOURCES/" -name "*$PRJ*.zip" -type f -exec rm -f '{}' \;
+        echo "removing old sources ..."
+        find "$HOME/rpmbuild/SOURCES/" -name "*.tar.*" -type f -exec rm -f '{}' \;
+        find "$HOME/rpmbuild/SOURCES/" -name "*.zip" -type f -exec rm -f '{}' \;
 
         if [ -n "$WGET" ]; then
-            echo "Lade Source-Archiv $URL herunter ..."
+            echo "downloading sources from $URL ..."
             $WGET "$URL" --quiet --show-progress -O "SOURCES/$DEST"
             RC=$?
             if [ $RC != 0 ]; then
-                notificationSend "Download fehlgeschlagen! (Fehlercode $RC)"
+                notificationSend "download failed! (code $RC)"
                 exit
             fi
         else
-            notificationSend "wget ist nicht installiert!"
+            notificationSend "wget is missing!"
             exit
         fi
     fi
 }
 
-function clean_chroot {
-    local RELEASE
-
+function get_mock_root {
     if [ -n "$MOCK" ]; then
         RELEASE=$(grep VERSION_ID /etc/os-release)
         RELEASE=${RELEASE#*=}
         readonly ROOT="fedora-$RELEASE-$CPU"
-        echo "Bereinige mock chroot $ROOT ..."
-        $MOCK -r $ROOT $NSPAWN --clean --quiet
     fi
 }
 
@@ -259,24 +258,23 @@ function buildRPMs {
     local RC
 
     echo
-    echo "lösche vorhandene SRPMs ..."
-    #find "$HOME/rpmbuild/SRPMS/" -name "*$PRJ*" -type f -exec rm -f '{}' \;
-	find "$HOME/rpmbuild/SRPMS/" -name "*src.rpm" -type f -exec rm -f '{}' \;
+    echo "removing existing SRPMs ..."
+    find "$HOME/rpmbuild/SRPMS/" -name "*src.rpm" -type f -exec rm -f '{}' \;
 
-    echo "lösche alte Logs ..."
+    echo "removing old logs ..."
     find . -name "*log" -type f -exec rm -f '{}' \;
 
-    echo "Räume Build-Verzeichnisse auf ..."
+    echo "cleaning build directory ..."
     DIRS=$(find "$HOME/rpmbuild" -name "BUILD*" -type d)
 
-    clean_chroot
+    get_mock_root
 
     for DIR in $DIRS ; do
         rm -rf ${DIR:?}/*
     done
 
     echo
-    echo -e "Erstelle $PRJ Source-Paket"
+    echo -e "generating $PRJ source package"
 
     # SRPM erstellen
     if $USERPMBUILD ; then
@@ -284,7 +282,7 @@ function buildRPMs {
             $RPMBUILD -bs "$HOME/rpmbuild/SPECS/$PRJ.spec"
             RC=$?
         else
-            notificationSend "rpmbuild ist nicht installiert!"
+            notificationSend "rpmbuild is missing!"
             exit
         fi
     else
@@ -292,19 +290,20 @@ function buildRPMs {
             $MOCK -r "$ROOT" \
               --dnf \
               --buildsrpm \
+              --bootstrap-chroot \
               --spec="$HOME/rpmbuild/SPECS/$PRJ.spec" \
               --sources="$HOME/rpmbuild/SOURCES" \
               --resultdir="$HOME/rpmbuild/SRPMS" \
               $NSPAWN
             RC=$?
         else
-            notificationSend "mock ist nicht installiert!"
+            notificationSend "mock is missing!"
             exit
         fi
     fi
 
     if [ "$RC" != 0 ]; then
-        notificationSend "SRPM-Build fehlgeschlagen! (Fehlercode $RC)"
+        notificationSend "generating srpm failed! (code $RC)"
         exit
     fi
 
@@ -314,41 +313,43 @@ function buildRPMs {
     readonly SRCRPM=$(basename "$SRPM")
 
     if [ -z "$SRPM" ]; then
-        notificationSend "konnte das SRPM nicht finden!"
+        notificationSend "can't find the srpm!"
         exit
     fi
 
-    echo
-    echo "Prüfe $PRJ Sources-Paket mit rpmlint"
-    SPEC=$(readlink -f "./SPECS/$PRJ.spec")
-    $RPMLINT "$SRPM" "$SPEC"
+    if [ -n "$RPMLINT" ]; then
+        echo
+        echo "validating $PRJ source package with rpmlint"
+        SPEC=$(readlink -f "./SPECS/$PRJ.spec")
+        $RPMLINT "$SRPM" "$SPEC"
+    fi
 
     if [ -n "$RPMDEPLINT" ]; then
         echo
-        echo "Prüfe $PRJ Sources-Paket mit rpmdeplint"
-        $RPMDEPLINT check "$SRPM"
+        echo "validating $PRJ source package with rpmdeplint"
+        $RPMDEPLINT check --arch $CPU "$SRPM"
     fi
 
     # Das Binary bauen und paketieren
     if $BUILDRPM ; then
         echo
-        echo "Erstelle Binärpaket ..."
+        echo "generating binary package ..."
         if [ -n "$MOCK" ]; then
             $MOCK -r "$ROOT" \
                 --rebuild "$SRPM" \
                 --target="$BARCH" \
                 --dnf \
                 --resultdir="$HOME/rpmbuild/RPMS/$BARCH" \
-                --cleanup-after \
+                --bootstrap-chroot \
                 $NSPAWN
             RC=$?
 
             if [ "$RC" != 0 ]; then
-                notificationSend "Build fehlgeschlagen! (Fehlercode $RC)"
+                notificationSend "build failed! (code $RC)"
                 exit
             fi
         else
-            notificationSend "mock ist nicht installiert"
+            notificationSend "mock is missing"
             exit
         fi
     fi
@@ -364,7 +365,7 @@ function uploadSources {
     if [ -s "$HOME/.config/minibuild/ftp.conf" ]; then
         source "$HOME/.config/minibuild/ftp.conf"
     else
-        notificationSend "FTP-Zugangsdaten sind nicht konfiguriert"
+        notificationSend "ftp-credentials not configured!"
         exit
     fi
 
@@ -372,7 +373,7 @@ function uploadSources {
     # es verwenden kann
     if [ -n "$FTPHOST" ]; then
         echo
-        echo "lade $SRPM auf FTP-Server hoch ..."
+        echo "uploading $SRPM to ftp ..."
         if [ -n "$LFTP" ]; then
             local FTPURL="ftp://$FTPUSER:$FTPPWD@$FTPHOST"
             local LCD="$WORKDIR/SRPMS"
@@ -390,15 +391,15 @@ function uploadSources {
             $CURL --ftp-ssl -# -k -T "$SRPM" -u "$FTPUSER:$FTPPWD" "ftp://$FTPHOST/$FTPPATH"
             RC=$?
             if [ "$RC" != 0 ]; then
-                notificationSend "Upload fehlgeschlagen! (Fehlercode $RC)"
+                notificationSend "upload failed! (code $RC)"
                 exit
             fi
         else
-            notificationSend "curl und lftp sind nicht installiert!"
+            notificationSend "curl and lftp missing!"
             exit
         fi
     else
-        notificationSend "FTP-Zugangsdaten sind nicht konfiguriert"
+        notificationSend "ftp-credentials not configured!"
         exit
     fi
 }
@@ -414,7 +415,7 @@ function buildCOPR {
     if [ -s "$HOME/.config/minibuild/ftp.conf" ]; then
         source "$HOME/.config/minibuild/ftp.conf"
     else
-        notificationSend "FTP-Zugangsdaten sind nicht konfiguriert"
+        notificationSend "ftp-credentials not configured!"
         exit
     fi
 
@@ -423,28 +424,28 @@ function buildCOPR {
         if [ -z "$COPRNAME" ]; then
             if [ -s "$HOME/.config/minibuild/coprs.conf" ]; then
                 echo
-                echo "Suche in coprs.conf nach passendem COPR ..."
+                echo "searching coprs.conf for a matching copr ..."
                 COPRS=$(grep "$PRJ" "$HOME/.config/minibuild/coprs.conf")
                 COUNTER=$(grep -c "$PRJ" "$HOME/.config/minibuild/coprs.conf")
                 COPRS=${COPRS#*=}
 
                 if [[ -n "$COPRS" && "$COUNTER" == 1 ]]; then
-                    read -p "COPR $COPRS verwenden? (j/n) " USE
+                    read -p "using copr $COPRS? (y/n) " USE
 
-                    if [ "${USE,,}" == "j" ]; then
+                    if [ "${USE,,}" == "y" ]; then
                         COPR=$COPRS
-                        echo "Verwende COPR $COPRS zum Erstellen der Pakete..."
+                        echo "using copr $COPRS for creating packages..."
                     fi
                 fi
             fi
 
             # Kein passendes COPR gefunden -> das COPR CLI befragen
             if [[ -z "$COPR" || $COUNTER != 1 ]]; then
-                echo "Suche nach passendem COPR ..."
+                echo "looking for a matching copr ..."
                 for COPRS in $($CLI list | grep Name | awk '{print $2}' | grep "$PRJ"); do
-                    read -p "COPR $COPRS verwenden? (j/n) " USE
+                    read -p "using copr $COPRS? (y/n) " USE
 
-                    if [ "${USE,,}" == "j" ]; then
+                    if [ "${USE,,}" == "y" ]; then
                         COPR=$COPRS
                         break
                     fi
@@ -453,7 +454,7 @@ function buildCOPR {
 
             # Noch immer kein passendes COPR gefunden -> User fragen
             if [ -z "$COPR" ]; then
-                read -p "Name des zu verwendenden COPRs: " COPR
+                read -p "using copr: " COPR
             fi
         else
             COPR=$COPRNAME
@@ -497,14 +498,14 @@ function buildCOPR {
             fi
         fi
     else
-        notificationSend "copr-cli ist nicht installiert!"
+        notificationSend "copr-cli is missing!"
         exit
     fi
 }
 
 function buildProject {
     if [ -e !"SPECS/$PRJ.spec" ]; then
-        notificationSend "Die angegebene Spec-Datei existiert nicht!"
+        notificationSend "the submitted spec file does not exist!"
         exit
     fi
 
@@ -562,7 +563,7 @@ function cmdline {
     local SRPMRPMBUILD=true
     local NAME
 
-    while getopts ":s:b:u:c:n:r:" opt; do
+    while getopts ":s:b:u:c:n:r:x:" opt; do
         case $opt in
             s)
                 readonly PRJ=$OPTARG
@@ -601,11 +602,11 @@ function cmdline {
                 fi
                 ;;
             \?)
-                echo "ungültige option: -$OPTARG" >&2
+                echo "invalid argument: -$OPTARG" >&2
                 exit 1
                 ;;
             :)
-                echo "Option -$OPTARG benötigt ein Argument." >&2
+                echo "argument -$OPTARG requires a value." >&2
                 exit 1
                 ;;
         esac
