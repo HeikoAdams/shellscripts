@@ -3,12 +3,12 @@
 OLDIFS=$IFS;
 IFS=$'\n';
 MP3DIR=("$HOME/Musik/" "$HOME/Downloads/MP3's");
-GAIN=$(which mp3gain);
+GAIN=$(which replaygain);
 LOGFILE="gain.log";
 
 # check if mp3gain is installed
 if [ -z "$GAIN" ]; then
-	echo "mp3gain not installed";
+	echo "replaygain not installed";
 	exit -1;
 fi
 
@@ -38,7 +38,7 @@ for DIR in ${MP3DIR[*]}; do
 
 	# gain files in current directory
 	for MP3 in $FILES; do
-		"$GAIN" -t -c -r -k -d 2 "$MP3"|grep Applying >> $LOGFILE;
+		"$GAIN" "$MP3"
 	done;
 done;
 
