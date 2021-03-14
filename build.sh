@@ -23,7 +23,7 @@
 function initConfig {
     if [ ! -d "$HOME/.config/minibuild/" ]; then
         mkdir -p "$HOME"/.config/minibuild/
-        notificationSend "Config directory created! Please check the minibuild-configuration!"
+        notificationSend "config directory created! Please check the minibuild-configuration!"
         exit -1
     else
         if [ ! -e "$HOME/.config/minibuild/chroots.conf" ]; then
@@ -130,7 +130,7 @@ function initVars {
     if [ -n "$SYSTEMD" ] && [ "$MOCKVER" \> "1.2.19" ] ; then
         readonly NSPAWN="--new-chroot"
     else
-        debugMsg "Mock version $MOCKVER is too old for systemd-nspawn, using chroot!"
+        debugMsg "mock version $MOCKVER is too old for systemd-nspawn, using chroot!"
         readonly NSPAWN="--old-chroot"
     fi
 }
