@@ -19,8 +19,12 @@ for REPO in $(find -name .git -type d | sort); do
         git checkout master
         git merge upstream/master
         git push
+	echo "Räume auf"
+	git clean -fd
     else
         git pull
+	echo "Räume auf"
+	git clean -fd
     fi
     echo
 done
