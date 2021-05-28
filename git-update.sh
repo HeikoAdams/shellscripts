@@ -2,6 +2,12 @@
 
 PRJDIR="$HOME/Projekte"
 
+if [ "$1" == "noclean" ]; then
+    CLEAN=false
+else
+    CLEAN=true
+fi
+
 cd $PRJDIR
 echo "suche zu aktualisierende git Repositories"
 for REPO in $(find -name .git -type d | sort); do
@@ -19,12 +25,18 @@ for REPO in $(find -name .git -type d | sort); do
         git checkout master
         git merge upstream/master
         git push
-	echo "Räume auf"
-	git clean -fd
+        if [ "$CLEAN" = true ];
+        then
+	        echo "Räume auf"
+	        git clean -fd
+        fi
     else
         git pull
-	echo "Räume auf"
-	git clean -fd
+        if [ "$CLEAN" = true ];
+        then
+	        echo "Räume auf"
+	        git clean -fd
+        fi
     fi
     echo
 done
