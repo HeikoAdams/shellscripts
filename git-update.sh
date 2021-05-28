@@ -1,12 +1,17 @@
 #! /bin/bash
 
 PRJDIR="$HOME/Projekte"
+CLEAN=true
 
-if [ "$1" == "noclean" ]; then
-    CLEAN=false
-else
-    CLEAN=true
-fi
+while [ $# -gt 0 ]
+do                   
+    if [ "$1" == "--noclean" ]; then
+        CLEAN=false
+    elif [ "$1" == "--dir" ] && [ -n "$2" ] && [ -d "$2" ]; then
+        PRJDIR="$2"
+    fi
+    shift
+done
 
 cd $PRJDIR
 echo "suche zu aktualisierende git Repositories"
