@@ -3,6 +3,7 @@
 # Standardwerte für Optionen setzen
 PRJDIR="$HOME/Projekte"
 CLEAN=true
+COMPRESS=true
 
 # Parameter verarbeiten
 while [ $# -gt 0 ]
@@ -11,6 +12,8 @@ do
         CLEAN=false
     elif [ "$1" == "--dir" ] && [ -n "$2" ] && [ -d "$2" ]; then
         PRJDIR="$2"
+    elif [ "$1" == "--nocompress" ]; then
+        COMPRESS=false
     else
         echo "unbekannter Parameter $1"
         exit -1
@@ -49,6 +52,11 @@ for REPO in $(find -name .git -type d | sort); do
       echo "Räume auf"
       git fetch -p -P
       git clean -fd
+    fi    
+    
+    if [ "$COMPRESS" = true ];
+    then
+      echo "Komprimiere git Datenbank"
       git gc --aggressive
     fi    
     
