@@ -34,7 +34,7 @@ function check_running() {
 # Funktion zum Komprimieren der Datenbanken
 function shrink_dbs() {
   echo -e "\nKomprimiere ${1}-Datenbanken"
-  FILES=$(find "${2}" -name "*sqlite")
+  FILES=$(find "${2}" -name "*sqlite" -o -name "*.db")
 
   for db in $FILES; do
     echo -e "komprimiere $db"
