@@ -28,15 +28,15 @@ TBRUNNING=$(find "$TBDIR" -name lock)
 # Funktion, um die möglichen Parameter anzuzeigen
 function help_params {
   echo -e "\nmögliche Parameter:\nALL: komplettes Backup\nTB: Nur Thunderbird sichern\nFF: nur Firefox sichern\n";
-  exit -1;
+  exit 1;
 }
 
 # Funktion, um zu prüfen, ob das übergebene Verzeichnis existiert
 function check_dir {
-  if [ ! -d $1 ]
+  if [ ! -d "$1" ]
   then
     echo -e "\n ${1} ist ungültig! \n";
-    exit $2;
+    exit "$2";
   fi
 }
 
@@ -52,7 +52,7 @@ function check_del_dir {
 function clear_directory {
   if [ -d "$1" ]
   then
-    rm -rf "$1/*";
+    rm -rf "${1:?}/*";
   fi  
 }
 
@@ -61,7 +61,7 @@ function check_running {
   if [ -n "$1" ]
   then
     echo -e "\n${2} wird noch ausgeführt!\nBitte beenden Sie ${2}, bevor Sie das Backup starten!\n";
-    exit $3;
+    exit "$3";
   fi
 }
 
@@ -71,13 +71,13 @@ function create_backup {
   
   if $ENC
   then
-    tar czp ${3} | gpg -z 0 -c > $BACKUPDIR/${2}.gpg
+    tar czp "${3}" | gpg -z 0 -c > "$BACKUPDIR/${2}.gpg"
   else
     if $DEBUG
     then
-      tar zcvf $BACKUPDIR/${2} ${3} > $BACKUPDIR/${4}
+      tar zcvf "$BACKUPDIR/${2}" "${3}" > "$BACKUPDIR/${4}"
     else
-      tar zcf $BACKUPDIR/${2} ${3}
+      tar zcf "$BACKUPDIR/${2} ${3}"
     fi
   fi
   
@@ -102,7 +102,7 @@ function backup_firefox {
   clear_directory "$FFCACHDIR"
 
   # Backup erstellen
-  create_backup "Firefox" $FFFILENAME $FFDIR $FFLOGFILE
+  create_backup "Firefox" "$FFFILENAME" "$FFDIR" "$FFLOGFILE"
 }
 
 # Funktion für das Thunderbird-Backup
@@ -123,7 +123,7 @@ function backup_thunderbird {
   clear_directory "$TBCACHDIR"
 
   # Backup erstellen
-  create_backup "Thunderbird" $TBFILENAME $TBDIR $TBLOGFILE
+  create_backup "Thunderbird" "$TBFILENAME" "$TBDIR" "$TBLOGFILE"
 }
 
 # wenn kein Parameter übergeben wurde, die möglichen Parameter anzeigen
