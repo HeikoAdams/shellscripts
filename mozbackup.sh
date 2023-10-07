@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Variablen für die Backup- und Protokoll-Dateien
 TBFILENAME="backup_thunderbird_"$(date +"%Y%m%d").tar.gz
@@ -27,60 +27,56 @@ TBRUNNING=$(find "$TBDIR" -name lock)
 
 # Funktion, um die möglichen Parameter anzuzeigen
 function help_params {
-  echo -e "\nmögliche Parameter:\nALL: komplettes Backup\nTB: Nur Thunderbird sichern\nFF: nur Firefox sichern\n";
-  exit 1;
+  echo -e "\nmögliche Parameter:\nALL: komplettes Backup\nTB: Nur Thunderbird sichern\nFF: nur Firefox sichern\n"
+  exit 1
 }
 
 # Funktion, um zu prüfen, ob das übergebene Verzeichnis existiert
 function check_dir {
-  if [ ! -d "$1" ]
-  then
-    echo -e "\n ${1} ist ungültig! \n";
-    exit "$2";
+  if [ ! -d "$1" ]; then
+    echo -e "\n ${1} ist ungültig! \n"
+    exit "$2"
   fi
 }
 
 # Funktion, um das Verzeichnis mit Crash-Reports zu löschen
 function check_del_dir {
-  if [ -d "$1" ]
-  then
-    rm -rf "$1";
-  fi  
+  if [ -d "$1" ]; then
+    echo -e "${1} wird gelöscht! \n"
+    rm -rf "$1"
+  fi
 }
 
 # Funktion, um das übergebene Verzeichnis zu leeren
 function clear_directory {
-  if [ -d "$1" ]
-  then
-    rm -rf "${1:?}/*";
-  fi  
+  if [ -d "$1" ]; then
+    echo -e "${1} wird bereinigt! \n"
+    rm -rf "${1:?}/*"
+  fi
 }
 
 # Funktion, um zu prüfen, ob das Programm noch ausgeführt wird
 function check_running {
-  if [ -n "$1" ]
-  then
-    echo -e "\n${2} wird noch ausgeführt!\nBitte beenden Sie ${2}, bevor Sie das Backup starten!\n";
-    exit "$3";
+  if [ -n "$1" ]; then
+    echo -e "\n${2} wird noch ausgeführt!\nBitte beenden Sie ${2}, bevor Sie das Backup starten!\n"
+    exit "$3"
   fi
 }
 
 # Funktion, zum Erstellen des Backups
 function create_backup {
   echo "erstelle ${1}-Backup"
-  
-  if $ENC
-  then
-    tar czp "${3}" | gpg -z 0 -c > "$BACKUPDIR/${2}.gpg"
+
+  if $ENC; then
+    tar czp "${3}" | gpg -z 0 -c >"$BACKUPDIR/${2}.gpg"
   else
-    if $DEBUG
-    then
-      tar zcvf "$BACKUPDIR/${2}" "${3}" > "$BACKUPDIR/${4}"
+    if $DEBUG; then
+      tar zcvf "$BACKUPDIR/${2}" "${3}" >"$BACKUPDIR/${4}"
     else
-      tar zcf "$BACKUPDIR/${2} ${3}"
+      tar zcf "$BACKUPDIR/${2}" "${3}"
     fi
   fi
-  
+
   echo "${1}-Backup erstellt"
 }
 
@@ -94,10 +90,10 @@ function backup_firefox {
 
   # prüfen, ob das angegebene Profil-Verzeichnis existiert
   check_dir "$FFDIR" -100
-  
+
   # prüfen, ob das Crash Reports-Verzeichnis vorhanden ist
   clear_directory "$FFCRASHDIR"
-  
+
   # Cache-Verzeichnis vor dem Backup leeren
   clear_directory "$FFCACHDIR"
 
@@ -109,7 +105,7 @@ function backup_firefox {
 function backup_thunderbird {
   # prüfen, ob das Zielverzeichnis existiert
   check_dir "$BACKUPDIR" -220
-  
+
   # prüfen, ob Thunderbird noch ausgeführt wird
   check_running "$TBRUNNING" "Thunderbird" -210
 
@@ -117,8 +113,8 @@ function backup_thunderbird {
   check_dir "$TBDIR" -200
 
   # prüfen, ob das Crash Reports-Verzeichnis vorhanden ist
-  clear_directory "$TBCRASHDIR" 
-   
+  clear_directory "$TBCRASHDIR"
+
   # Cache-Verzeichnis vor dem Backup leeren
   clear_directory "$TBCACHDIR"
 
@@ -127,22 +123,19 @@ function backup_thunderbird {
 }
 
 # wenn kein Parameter übergeben wurde, die möglichen Parameter anzeigen
-if [ -z "$1" ]
-then
+if [ -z "$1" ]; then
   help_params
 fi
 
 # Prüfen, ob die Backups verschlüsselt werden sollen
-if [[ -n "$2" && "$2" == "ENC" ]]
-then
+if [[ -n "$2" && "$2" == "ENC" ]]; then
   ENC=true
 else
   ENC=false
 fi
 
 # Prüfen, ob der Debug-Modus aktiviert werden soll
-if [[ -n "$2" && "$2" == "DEBUG" ]]
-then
+if [[ -n "$2" && "$2" == "DEBUG" ]]; then
   DEBUG=true
 else
   DEBUG=false
@@ -150,32 +143,30 @@ fi
 
 # Festlegen, was gesichert werden soll
 case "$1" in
-  ALL)
-    FFBACKUP=true
-    TBBACKUP=true
-    ;;
-  FF)
-    FFBACKUP=true
-    TBBACKUP=false
-    ;;
-  TB)
-    FFBACKUP=false
-    TBBACKUP=true
-    ;;
-  *)
-    echo -e "\nungültiger Parameter: ${1}";
-    help_params
-    ;;
+ALL)
+  FFBACKUP=true
+  TBBACKUP=true
+  ;;
+FF)
+  FFBACKUP=true
+  TBBACKUP=false
+  ;;
+TB)
+  FFBACKUP=false
+  TBBACKUP=true
+  ;;
+*)
+  echo -e "\nungültiger Parameter: ${1}"
+  help_params
+  ;;
 esac
 
 # Backup Firefox-Profil(e)
-if $FFBACKUP
-then
-  backup_firefox;
+if $FFBACKUP; then
+  backup_firefox
 fi
 
 # Backup Thunderbird-Profil(e)
-if $TBBACKUP
-then
+if $TBBACKUP; then
   backup_thunderbird
 fi
