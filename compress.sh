@@ -3,6 +3,17 @@
 OLDIFS=$IFS
 IFS=$'\n'
 
+# Prüfen, ob find und pgrep installiert sind
+if [ "$(which find)" == "" ]; then
+  echo "find ist nicht installier!"
+  exit 1
+fi
+
+if [ "$(which pgrep)" == "" ]; then
+  echo "find ist nicht installier!"
+  exit 1
+fi
+
 # Variablen für die Profil-Verzeichnisse
 FFDIR="${HOME}/.mozilla/firefox"
 TBDIR="${HOME}/.thunderbird"
@@ -51,6 +62,11 @@ check_running "$TBRUNNING" "Thunderbird" -210 "$TBCOUNT"
 shrink_dbs "Firefox" "$FFDIR"
 shrink_dbs "Thunderbird" "$TBDIR"
 
-zenity --info --text="Kompression abgeschlossen"
+zenity=$(which zenity)
+if [ "$zenity" == "" ]; then
+  $zenity --info --text="Komprimierung abgeschlossen"
+else
+  echo "Komprimierung abgeschlossen"
+fi
 
 IFS=$OLDIFS
