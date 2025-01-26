@@ -9,7 +9,7 @@ LOGFILE="gain.log";
 # check if mp3gain is installed
 if [ -z "$GAIN" ]; then
 	echo "replaygain not installed";
-	exit -1;
+	exit 1;
 fi
 
 # delete existing logfile
@@ -21,19 +21,19 @@ fi
 touch $LOGFILE;
 
 # process directories array
-for DIR in ${MP3DIR[*]}; do
+for DIR in "${MP3DIR[@]}"; do
     # make sure the directory exists
     if [ ! -d "$DIR" ]; then
         continue
     fi
 
-	echo $DIR;
+	echo "$DIR";
 	
 	# create filelist for current directory
 	if [ -z "$1" ]; then
-		FILES=$(find "$DIR" -name *mp3|sort);
+		FILES=$(find "$DIR" -name '*mp3'|sort);
 	else
-		FILES=$(find "$DIR/$1" -name *mp3|sort);
+		FILES=$(find "$DIR/$1" -name '*mp3'|sort);
 	fi
 
 	# gain files in current directory

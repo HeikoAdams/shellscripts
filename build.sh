@@ -24,24 +24,24 @@ function initConfig {
     if [ ! -d "$HOME/.config/minibuild/" ]; then
         mkdir -p "$HOME"/.config/minibuild/
         notificationSend "config directory created! Please check the minibuild-configuration!"
-        exit -1
+        exit 1
     else
         if [ ! -e "$HOME/.config/minibuild/chroots.conf" ]; then
             touch "$HOME"/.config/minibuild/chroots.conf
             notificationSend "chroots.conf created!"
-            exit -1
+            exit 1
         fi
 
         if [ ! -e "$HOME/.config/minibuild/coprs.conf" ]; then
             touch "$HOME"/.config/minibuild/coprs.conf
             notificationSend "coprs.conf created!"
-            exit -1
+            exit 1
         fi
 
         if [ ! -e "$HOME/.config/minibuild/ftp.conf" ]; then
             touch "$HOME"/.config/minibuild/ftp.conf
             notificationSend "ftp.conf created!"
-            exit -1
+            exit 1
         fi
     fi
 }
@@ -51,8 +51,9 @@ function prepareBuild {
     WDIR=$(pwd)
 
     if [ "$WDIR" != "$HOME/rpmbuild" ]; then
-        cd "$HOME/rpmbuild"
-        readonly WORKDIR=$(pwd)
+        cd "$HOME/rpmbuild" || exit
+        WORKDIR=$(pwd)
+        readonly WORKDIR
     fi
 }
 
@@ -71,39 +72,61 @@ function notificationSend {
 
     $NOTIFY """$TITLE""" """$MSG"""
 
-    debugMsg $MSG
+    debugMsg "$MSG"
 }
 
 function initVars {
     # benötigte Variable befüllen
 
     # benötigte Programme suchen
-    readonly RPMBUILD=$(command -v rpmbuild)
-    readonly RPMLINT=$(command -v rpmlint)
-    readonly RPMDEPLINT=$(command -v rpmdeplint)
-    readonly NOTIFY=$(command -v notify-send)
-    readonly WGET=$(command -v wget)
-    readonly MOCK=$(command -v mock)
-    readonly CURL=$(command -v curl)
-    readonly CLI=$(command -v copr-cli)
-    readonly LFTP=$(command -v lftp)
-    readonly SYSTEMD=$(command -v systemd-nspawn)
+    RPMBUILD=$(command -v rpmbuild)
+    readonly RPMBUILD
+    RPMLINT=$(command -v rpmlint)
+    readonly RPMLINT
+    RPMDEPLINT=$(command -v rpmdeplint)
+    readonly RPMDEPLINT
+    NOTIFY=$(command -v notify-send)
+    readonly NOTIFY
+    WGET=$(command -v wget)
+    readonly WGET
+    MOCK=$(command -v mock)
+    readonly MOCK
+    CURL=$(command -v curl)
+    readonly CURL
+    CLI=$(command -v copr-cli)
+    readonly CLI
+    LFTP=$(command -v lftp)
+    readonly LFTP
+    SYSTEMD=$(command -v systemd-nspawn)
+    readonly LFTP
 
     # Paketspezifische Variablen füllen
-    readonly ARCH=$(grep BuildArch: SPECS/"$PRJ".spec | awk '{print $2}');
-    readonly SRC=$(grep Source: SPECS/"$PRJ".spec | awk '{print $2}');
-    readonly PRJURL=$(grep URL: SPECS/"$PRJ".spec | awk '{print $2}');
-    readonly NAME=$(grep Name: SPECS/"$PRJ".spec | head -1 | awk '{print $2}');
-    readonly PRJNAME=$(grep prjname SPECS/"$PRJ".spec | head -1 | awk '{print $3}');
-    readonly PKGNAME=$(grep pkgname SPECS/"$PRJ".spec | head -1 | awk '{print $3}');
-    readonly BRANCH=$(grep branch SPECS/"$PRJ".spec | head -1 | awk '{print $3}');
-    readonly VERSION=$(grep Version: SPECS/"$PRJ".spec | head -1 | awk '{print $2}');
-    readonly COMMIT=$(grep commit SPECS/"$PRJ".spec | head -1 | awk '{print $3}');
-    readonly BZR_REV=$(grep bzr_rev SPECS/"$PRJ".spec | head -1 | awk '{print $3}');
+    ARCH=$(grep BuildArch: SPECS/"$PRJ".spec | awk '{print $2}');
+    readonly ARCH
+    SRC=$(grep Source: SPECS/"$PRJ".spec | awk '{print $2}');
+    readonly SRC
+    PRJURL=$(grep URL: SPECS/"$PRJ".spec | awk '{print $2}');
+    readonly PRJURL
+    NAME=$(grep Name: SPECS/"$PRJ".spec | head -1 | awk '{print $2}');
+    readonly NAME
+    PRJNAME=$(grep prjname SPECS/"$PRJ".spec | head -1 | awk '{print $3}');
+    readonly PRJNAME
+    PKGNAME=$(grep pkgname SPECS/"$PRJ".spec | head -1 | awk '{print $3}');
+    readonly PKGNAME
+    BRANCH=$(grep branch SPECS/"$PRJ".spec | head -1 | awk '{print $3}');
+    readonly BRANCH
+    VERSION=$(grep Version: SPECS/"$PRJ".spec | head -1 | awk '{print $2}');
+    readonly VERSION
+    COMMIT=$(grep commit SPECS/"$PRJ".spec | head -1 | awk '{print $3}');
+    readonly COMMIT
+    BZR_REV=$(grep bzr_rev SPECS/"$PRJ".spec | head -1 | awk '{print $3}');
+    readonly BZR_REV
     
     # sonstige Variable befüllen
-    readonly CPU=$(uname -m)
-    readonly MOCKVER=$(mock --version)
+    CPU=$(uname -m)
+    readonly CPU
+    MOCKVER=$(mock --version)
+    readonly MOCKVER
 
     # Wenn im SPEC keine BuildArch angegeben ist, für die eigene Prozessor-
     # Architektur bauen
@@ -116,7 +139,8 @@ function initVars {
     # Falls keine Angabe zum Source-Tag gefunden wurde, im Source0-Tag
     # nachschauen
     if [ -z "$SRC" ]; then
-        readonly SOURCE=$(grep Source0: SPECS/"$PRJ".spec | awk '{print $2}');
+        SOURCE=$(grep Source0: SPECS/"$PRJ".spec | awk '{print $2}');
+        readonly SOURCE
     else
         readonly SOURCE=$SRC
     fi
@@ -157,7 +181,7 @@ function moveLocal {
             find "$HOME/rpmbuild/RPMS/$ARCHDIR/" -name "*$PRJ*" -type f -exec rm -f '{}' \;
 
             echo "copying RPMs to $HOME/rpmbuild/RPMS/$ARCHDIR/"
-            mv -f "$HOME/rpmbuild/RPMS/*$ARCHDIR*.rpm $HOME/rpmbuild/RPMS/$ARCHDIR/"
+            mv -f "$HOME/rpmbuild/RPMS/*$ARCHDIR*.rpm" "$HOME/rpmbuild/RPMS/$ARCHDIR/"
 
             if [ -n "$RPMLINT" ]; then
                 RPMFILE=$(find . -path "./RPMS/$ARCHDIR/$NAME-$VERSION*.rpm" -type f)
@@ -219,6 +243,7 @@ function downloadSources {
     fi
 
     # Dateinamen des lokalen Sourcen-Archivs generieren
+    # shellcheck disable=SC1001
     DEST=$(echo "$URL" | awk -F\/ '{print $NF}')
 
     # Wenn eine URL als Source angegeben ist, die Datei herunterladen
@@ -270,7 +295,7 @@ function buildRPMs {
     get_mock_root
 
     for DIR in $DIRS ; do
-        rm -rf ${DIR:?}/*
+        rm -rf "${DIR:?}/*"
     done
 
     echo
@@ -309,8 +334,10 @@ function buildRPMs {
 
     # Pfad zum SRPM generieren
     SOURCEFILE=$(find . -path "./SRPMS/$PRJ*" -type f)
-    readonly SRPM=$(readlink -f "$SOURCEFILE")
-    readonly SRCRPM=$(basename "$SRPM")
+    SRPM=$(readlink -f "$SOURCEFILE")
+    readonly SRPM
+    SRCRPM=$(basename "$SRPM")
+    readonly SRCRPM
 
     if [ -z "$SRPM" ]; then
         notificationSend "can't find the srpm!"
@@ -327,7 +354,7 @@ function buildRPMs {
     if [ -n "$RPMDEPLINT" ]; then
         echo
         echo "validating $PRJ source package with rpmdeplint"
-        $RPMDEPLINT check --arch $CPU "$SRPM"
+        $RPMDEPLINT check --arch "$CPU" "$SRPM"
     fi
 
     # Das Binary bauen und paketieren
@@ -360,9 +387,10 @@ function buildRPMs {
 }
 
 function uploadSources {
-    cd $WORKDIR/SRPMS
+    cd "$WORKDIR/SRPMS" || exit
     # FTP-Zugangsdaten auslesen sowie URL des SRPM auslesen
     if [ -s "$HOME/.config/minibuild/ftp.conf" ]; then
+        # shellcheck disable=SC1091
         source "$HOME/.config/minibuild/ftp.conf"
     else
         notificationSend "ftp-credentials not configured!"
@@ -413,6 +441,7 @@ function buildCOPR {
 
     # FTP-Zugangsdaten auslesen sowie URL des SRPM auslesen
     if [ -s "$HOME/.config/minibuild/ftp.conf" ]; then
+        # shellcheck disable=SC1091
         source "$HOME/.config/minibuild/ftp.conf"
     else
         notificationSend "ftp-credentials not configured!"
@@ -430,7 +459,7 @@ function buildCOPR {
                 COPRS=${COPRS#*=}
 
                 if [[ -n "$COPRS" && "$COUNTER" == 1 ]]; then
-                    read -p "using copr $COPRS? (y/n) " USE
+                    read -r -p "using copr $COPRS? (y/n) " USE
 
                     if [ "${USE,,}" == "y" ]; then
                         COPR=$COPRS
@@ -443,7 +472,7 @@ function buildCOPR {
             if [[ -z "$COPR" || $COUNTER != 1 ]]; then
                 echo "looking for a matching copr ..."
                 for COPRS in $($CLI list | grep Name | awk '{print $2}' | grep "$PRJ"); do
-                    read -p "using copr $COPRS? (y/n) " USE
+                    read -r -p "using copr $COPRS? (y/n) " USE
 
                     if [ "${USE,,}" == "y" ]; then
                         COPR=$COPRS
@@ -454,7 +483,7 @@ function buildCOPR {
 
             # Noch immer kein passendes COPR gefunden -> User fragen
             if [ -z "$COPR" ]; then
-                read -p "using copr: " COPR
+                read -r -p "using copr: " COPR
             fi
         else
             COPR=$COPRNAME
@@ -491,9 +520,9 @@ function buildCOPR {
 
                 IFS=$OLDIFS
                 if ! $UPLOADFTP ; then
-                    $CLI build "$COPR" $CMDLINE "$SRPM"
+                    $CLI build "$COPR" "$CMDLINE" "$SRPM"
                 else
-                    $CLI build "$COPR" $CMDLINE "http://$HTTPHOST/$HTTPPATH/$SRCRPM"
+                    $CLI build "$COPR" "$CMDLINE" "http://$HTTPHOST/$HTTPPATH/$SRCRPM"
                 fi
             fi
         fi
@@ -529,7 +558,6 @@ function cmdline {
     # http://kirk.webfinish.com/2009/10/bash-shell-script-to-use-getopts-with-gnu-style-long-positional-parameters/
     local ARG
     local PARAM
-    local OPTION
 
     for ARG; do
         local DELIM=""
@@ -563,7 +591,7 @@ function cmdline {
     local SRPMRPMBUILD=true
     local NAME
 
-    while getopts ":s:b:u:c:n:r:x:" opt; do
+    while getopts ":s:b:u:c:n:r:" opt; do
         case $opt in
             s)
                 readonly PRJ=$OPTARG
@@ -625,15 +653,13 @@ function cmdline {
 }
 
 function main {
-    cmdline $ARGS
+    cmdline "$ARGS"
     prepareBuild
     buildProject
 }
 
-CURRDIR=$(dirname "$0")
-readonly PROGNAME=$(basename "$0")
-readonly PROGDIR=$(readlink -m "$CURRDIR")
-readonly ARGS="$@"
+ARGS=("$@")
+readonly ARGS
 
 main
 cd ..
